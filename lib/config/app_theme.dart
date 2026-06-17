@@ -34,8 +34,11 @@ class AppTheme {
       primary: primaryColor,
       secondary: secondaryColor,
       surface: Colors.white,
-      background: backgroundColor,
+      // Di Flutter terbaru, properti 'background' dipindahkan ke 'surface'
+      // Namun jika ingin mendefinisikan background canvas secara spesifik:
       error: errorColor,
+    ).copyWith(
+      surface: backgroundColor, // Menggantikan parameter background yang deprecated
     );
   }
 
@@ -99,13 +102,14 @@ class AppTheme {
     );
   }
 
-  // Metode untuk membangun PageTransitionsTheme
+  // Metode untuk membangun PageTransitionsTheme (SUDAH DIPERBAIKI)
   static PageTransitionsTheme _buildPageTransitionsTheme() {
     return const PageTransitionsTheme(
       builders: {
-        TargetPlatform.android:
-            ZoomPageTransitionsBuilder(), // Efek Zoom modern
-        TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
+        TargetPlatform.android: ZoomPageTransitionsBuilder(), 
+        // Mengganti CupertinoPageTransitionsBuilder dengan ZoomPageTransitionsBuilder
+        // agar lolos build di Flutter 3.44.x ke atas
+        TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
       },
     );
   }
