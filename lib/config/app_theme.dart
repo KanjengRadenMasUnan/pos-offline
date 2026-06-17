@@ -105,7 +105,7 @@ class AppTheme {
       builders: {
         TargetPlatform.android:
             ZoomPageTransitionsBuilder(), // Efek Zoom modern
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: const CupertinoPageTransitionsBuilder(),
       },
     );
   }
