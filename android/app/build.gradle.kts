@@ -10,6 +10,15 @@ android {
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
+    splits {
+        abi {
+            isEnable = true // Mengaktifkan split ABI (Menggunakan 'isEnable' di Kotlin DSL)
+            reset() // Mengosongkan daftar bawaan
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64") // ABI yang ingin di-build
+            isUniversalApk = true // Opsional: Menghasilkan satu APK universal juga
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
