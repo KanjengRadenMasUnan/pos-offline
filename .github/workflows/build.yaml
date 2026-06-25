@@ -21,7 +21,6 @@ jobs:
         java-version: '17'
         cache: 'gradle'
 
-    # Langkah alternatif jika kamu butuh Flutter SDK untuk proses build (sangat disarankan untuk Flutter)
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -30,16 +29,13 @@ jobs:
     - name: Get Flutter Dependencies
       run: flutter pub get
 
-    - name: Grant Execute Permission for Gradlew
-      run: chmod +x gradlew
-      working-directory: android
+    # 🟢 Menggunakan perintah bawaan Flutter, tidak butuh chmod +x gradlew lagi
+    - name: Build Split APKs via Flutter
+      run: flutter build apk --split-per-abi --release
 
-    - name: Build Split APKs
-      run: ./gradlew assembleRelease
-      working-directory: android
-
+    # 🟢 Mengunggah hasil build dari output folder default Flutter
     - name: Upload APK Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: split-apks
-        path: android/app/build/outputs/apk/release/ # 🟢 Path output juga disesuaikan ke folder android
+        path: build/app/outputs/flutter-apk/
