@@ -2,7 +2,7 @@ name: Build Split APKs per ABI
 
 on:
   push:
-    branches: [ "main" ] # Jalankan setiap ada push ke branch main
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -19,19 +19,27 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '17'
-        cache: 'gradle' # Mengaktifkan cache agar build berikutnya lebih cepat
+        cache: 'gradle'
+
+    # Langkah alternatif jika kamu butuh Flutter SDK untuk proses build (sangat disarankan untuk Flutter)
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+
+    - name: Get Flutter Dependencies
+      run: flutter pub get
 
     - name: Grant Execute Permission for Gradlew
       run: chmod +x gradlew
-      working-directory: android # 🟢 Tambahkan ini agar mengeksekusi di dalam folder android
+      working-directory: android
 
     - name: Build Split APKs
       run: ./gradlew assembleRelease
-      working-directory: android # 🟢 Tambahkan ini juga agar build berjalan di tempat yang benar
+      working-directory: android
 
-    # Mengunggah hasil build (Artifact) ke GitHub agar bisa di-download
     - name: Upload APK Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: split-apks
-        path: app/build/outputs/apk/release/
+        path: android/app/build/outputs/apk/release/ # 🟢 Path output juga disesuaikan ke folder android
