@@ -23,10 +23,11 @@ jobs:
 
     - name: Grant Execute Permission for Gradlew
       run: chmod +x gradlew
+      working-directory: android # 🟢 Tambahkan ini agar mengeksekusi di dalam folder android
 
-    # Langkah utama untuk melakukan build APK
     - name: Build Split APKs
       run: ./gradlew assembleRelease
+      working-directory: android # 🟢 Tambahkan ini juga agar build berjalan di tempat yang benar
 
     # Mengunggah hasil build (Artifact) ke GitHub agar bisa di-download
     - name: Upload APK Artifacts
