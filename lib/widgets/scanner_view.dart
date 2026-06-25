@@ -2,252 +2,246 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class ScannerView extends StatefulWidget {
-  final void Function(String) onDetect;
-
+  final void Function(String code) onDetect;
   const ScannerView({super.key, required this.onDetect});
 
   @override
   State<ScannerView> createState() => _ScannerViewState();
 }
 
-// Tambahkan Mixin 'SingleTickerProviderStateMixin' untuk animasi
 class _ScannerViewState extends State<ScannerView>
     with SingleTickerProviderStateMixin {
-  // ====================
-  // Properties
-  // ====================
-
+  final GlobalKey _stackKey = GlobalKey();
   late final MobileScannerController _controller;
-  bool _isDetected = false;
+  bool _isProcessing = false;
 
-  // Properti untuk Animasi Laser
-  late AnimationController _animController;
-  late Animation<double> _animation;
+  // Animasi overlay
+  late final AnimationController _animCtrl;
+  late final Animation<double> _animOpacity;
 
-  // ====================
-  // Lifecycle Methods
-  // ====================
+  // Ukuran area fokus (persentase layar)
+  static const double _focusWidthRatio = 0.7;
+  static const double _focusHeightRatio = 0.3;
+
+  // Debounce timestamp
+  DateTime _lastDetectTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _initializeController();
-    _initializeAnimation(); // Inisialisasi animasi
+
+    // Animasi fade-in overlay
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _animOpacity = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _animCtrl.forward();
+
+    _controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
   }
 
   @override
   void dispose() {
+    _animCtrl.dispose();
     _controller.dispose();
-    _animController.dispose(); // Hapus controller animasi
     super.dispose();
   }
-
-  // ====================
-  // Widget Build Methods
-  // ====================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Latar belakang hitam
-      appBar: _buildAppBar(),
-      body: _buildScannerView(),
-    );
-  }
-
-  AppBar _buildAppBar() {
-    return AppBar(
-      title: const Text('Scan Barcode'),
       backgroundColor: Colors.black,
-      foregroundColor: Colors.white,
-      centerTitle: true,
-      iconTheme: const IconThemeData(color: Colors.white),
-    );
-  }
+      appBar: AppBar(
+        title: const Text("Scan Barcode"),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: Stack(
+        key: _stackKey,
+        fit: StackFit.expand,
+        children: [
+          // Kamera
+          MobileScanner(controller: _controller, onDetect: _onBarcodeDetected),
 
-  Widget _buildScannerView() {
-    return Stack(
-      children: [
-        _buildMobileScanner(),
-        _buildScannerOverlay(),
-        _buildInstructionText(),
-      ],
-    );
-  }
+          // Overlay kotak fokus dengan animasi fade-in
+          FadeTransition(
+            opacity: _animOpacity,
+            child: CustomPaint(
+              painter: _ScannerOverlayPainter(
+                focusWidthRatio: _focusWidthRatio,
+                focusHeightRatio: _focusHeightRatio,
+              ),
+            ),
+          ),
 
-  // ====================
-  // Component Builders
-  // ====================
-
-  Widget _buildMobileScanner() {
-    return MobileScanner(
-      controller: _controller,
-      onDetect: _handleBarcodeDetected,
-    );
-  }
-
-  Widget _buildScannerOverlay() {
-    const double scanArea = 250;
-
-    return Stack(
-      children: [
-        // 1. Overlay Gelap (Membuat area di luar kotak terlihat gelap)
-        ColorFiltered(
-          colorFilter: const ColorFilter.mode(Colors.black54, BlendMode.srcOut),
-          child: Stack(
-            children: [
-              Container(
-                decoration: const BoxDecoration(
-                  color: Colors.transparent,
-                  backgroundBlendMode: BlendMode.dstOut,
+          // Petunjuk di bawah kotak
+          const Positioned(
+            bottom: 100,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Text(
+                "Arahkan barcode ke dalam kotak",
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              Center(
-                child: Container(
-                  height: scanArea,
-                  width: scanArea,
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // 2. Kotak Border & Laser
-        Center(
-          child: Container(
-            width: scanArea,
-            height: scanArea,
-            decoration: BoxDecoration(
-              // Ubah warna border: Merah (Scan) -> Hijau (Sukses)
-              border: Border.all(
-                color: _isDetected ? Colors.green : Colors.red,
-                width: 3,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Stack(
-                children: [
-                  // Tampilkan Laser hanya jika belum terdeteksi
-                  if (!_isDetected)
-                    AnimatedBuilder(
-                      animation: _animation,
-                      builder: (context, child) {
-                        return Positioned(
-                          // Laser bergerak dari atas (0) ke bawah (scanArea)
-                          top: _animation.value * (scanArea - 5),
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            height: 2,
-                            decoration: BoxDecoration(
-                              color: Colors.redAccent,
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.red,
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                ],
-              ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInstructionText() {
-    return Positioned(
-      bottom: 50,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          // Ubah teks saat sukses
-          child: Text(
-            _isDetected ? 'Berhasil Membaca!' : 'Arahkan kamera ke barcode',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
+        ],
       ),
     );
   }
 
-  // ====================
-  // Helper Methods
-  // ====================
+  void _onBarcodeDetected(BarcodeCapture capture) {
+    if (_isProcessing) return;
 
-  void _initializeController() {
-    _controller = MobileScannerController(
-      detectionTimeoutMs: 2000,
-      formats: [BarcodeFormat.all],
-      autoStart: true,
-      detectionSpeed: DetectionSpeed.noDuplicates,
+    // Debounce 800ms
+    final now = DateTime.now();
+    if (now.difference(_lastDetectTime).inMilliseconds < 800) return;
+    _lastDetectTime = now;
+
+    final barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+
+    // Dapatkan ukuran layar
+    final box = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+
+    final screenSize = box.size;
+    final focusW = screenSize.width * _focusWidthRatio;
+    final focusH = screenSize.height * _focusHeightRatio;
+    final focusLeft = (screenSize.width - focusW) / 2;
+    final focusTop = (screenSize.height - focusH) / 2;
+    final focusRect = Rect.fromLTWH(focusLeft, focusTop, focusW, focusH);
+
+    final sourceSize = capture.size;
+    final scaleX = screenSize.width / sourceSize.width;
+    final scaleY = screenSize.height / sourceSize.height;
+
+    for (final barcode in barcodes) {
+      Offset? center;
+
+      if (barcode.corners.isNotEmpty) {
+        double sumX = 0, sumY = 0;
+        for (final p in barcode.corners) {
+          sumX += p.dx * scaleX;
+          sumY += p.dy * scaleY;
+        }
+        center = Offset(
+          sumX / barcode.corners.length,
+          sumY / barcode.corners.length,
+        );
+      }
+
+      if (center == null) continue;
+
+      // Hanya proses jika titik tengah di dalam kotak fokus
+      if (focusRect.contains(center)) {
+        final code = barcode.rawValue;
+        if (code != null && code.isNotEmpty) {
+          _isProcessing = true;
+          widget.onDetect(code);
+          Navigator.pop(context);
+          return;
+        }
+      }
+    }
+  }
+}
+
+// ===================== PAINTER OVERLAY =====================
+class _ScannerOverlayPainter extends CustomPainter {
+  final double focusWidthRatio;
+  final double focusHeightRatio;
+
+  _ScannerOverlayPainter({
+    required this.focusWidthRatio,
+    required this.focusHeightRatio,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final focusW = size.width * focusWidthRatio;
+    final focusH = size.height * focusHeightRatio;
+    final left = (size.width - focusW) / 2;
+    final top = (size.height - focusH) / 2;
+    final focusRect = Rect.fromLTWH(left, top, focusW, focusH);
+
+    // 1. Area gelap di luar kotak
+    final bgPaint = Paint()..color = Colors.black54;
+    canvas.drawPath(
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)),
+        Path()..addRect(focusRect),
+      ),
+      bgPaint,
+    );
+
+    // 2. Garis tepi kotak (lebih lembut)
+    final borderPaint = Paint()
+      ..color = Colors.white.withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawRect(focusRect, borderPaint);
+
+    // 3. Sudut-sudut tegas
+    final cornerPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5;
+    const double len = 28.0;
+
+    // Atas-kiri
+    canvas.drawLine(Offset(left, top + len), Offset(left, top), cornerPaint);
+    canvas.drawLine(Offset(left, top), Offset(left + len, top), cornerPaint);
+
+    // Atas-kanan
+    canvas.drawLine(
+      Offset(left + focusW - len, top),
+      Offset(left + focusW, top),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      Offset(left + focusW, top),
+      Offset(left + focusW, top + len),
+      cornerPaint,
+    );
+
+    // Bawah-kiri
+    canvas.drawLine(
+      Offset(left, top + focusH - len),
+      Offset(left, top + focusH),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      Offset(left, top + focusH),
+      Offset(left + len, top + focusH),
+      cornerPaint,
+    );
+
+    // Bawah-kanan
+    canvas.drawLine(
+      Offset(left + focusW - len, top + focusH),
+      Offset(left + focusW, top + focusH),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      Offset(left + focusW, top + focusH - len),
+      Offset(left + focusW, top + focusH),
+      cornerPaint,
     );
   }
 
-  void _initializeAnimation() {
-    _animController = AnimationController(
-      duration: const Duration(seconds: 2), // Kecepatan laser
-      vsync: this,
-    )..repeat(reverse: true); // Bergerak bolak-balik (atas-bawah-atas)
-
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(_animController);
-  }
-
-  void _handleBarcodeDetected(BarcodeCapture capture) {
-    if (_isDetected) return;
-
-    final barcodes = capture.barcodes;
-    final hasValidBarcode =
-        barcodes.isNotEmpty && barcodes.first.rawValue != null;
-
-    if (!hasValidBarcode) return;
-
-    _processBarcodeDetection(barcodes.first.rawValue!);
-  }
-
-  void _processBarcodeDetection(String barcodeValue) {
-    setState(() {
-      _isDetected = true;
-      _animController.stop(); // Hentikan laser agar user fokus ke kotak hijau
-    });
-
-    // Panggil callback
-    widget.onDetect(barcodeValue);
-
-    // Stop kamera
-    _controller.stop();
-
-    // Beri jeda 500ms agar user melihat kotak hijau sebelum menutup
-    Future.delayed(const Duration(milliseconds: 500), () {
-      _navigateBack();
-    });
-  }
-
-  void _navigateBack() {
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
-  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 import 'add_product_page.dart';
-import '../../config/app_constants.dart';
 import '../../config/app_theme.dart';
 import '../../controllers/product_list_controller.dart';
 import '../../models/product_model.dart';
@@ -28,7 +27,6 @@ class _ProductListPageState extends State<ProductListPage> {
 
   @override
   void dispose() {
-    controller.disposeEditControllers();
     super.dispose();
   }
 
@@ -47,7 +45,6 @@ class _ProductListPageState extends State<ProductListPage> {
 }
 
 // --- APP BAR ---
-
 class _ProductListAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   const _ProductListAppBar();
@@ -63,7 +60,6 @@ class _ProductListAppBar extends StatelessWidget
       backgroundColor: Colors.white,
       foregroundColor: Colors.black,
       actions: [
-        // --- TOMBOL PILIHAN EXPORT / IMPORT EXCEL ---
         Consumer<ProductListController>(
           builder: (context, controller, _) {
             return PopupMenuButton<String>(
@@ -115,7 +111,6 @@ class _ProductListAppBar extends StatelessWidget
 }
 
 // --- MAIN BODY STRUCTURE ---
-
 class _Body extends StatelessWidget {
   const _Body();
 
@@ -155,7 +150,6 @@ class _HeaderSection extends StatelessWidget {
 }
 
 // --- PRODUCT LIST & ANIMATION ---
-
 class _ProductList extends StatelessWidget {
   const _ProductList();
 
@@ -205,7 +199,6 @@ class _ProductList extends StatelessWidget {
 }
 
 // --- SEARCH & FILTERS ---
-
 class _SearchBar extends StatelessWidget {
   const _SearchBar();
 
@@ -270,7 +263,6 @@ class _CategoryFilter extends StatelessWidget {
 }
 
 // --- ACTIONS & COMPONENTS ---
-
 class _SortButton extends StatelessWidget {
   const _SortButton();
 
@@ -451,7 +443,6 @@ class _ActionButton extends StatelessWidget {
 }
 
 // --- DIALOGS & FORMS ---
-
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
@@ -523,7 +514,6 @@ class _EditDialog {
         actions: [
           TextButton(
             onPressed: () {
-              controller.disposeEditControllers();
               Navigator.pop(context);
             },
             child: const Text("Batal"),
@@ -532,7 +522,6 @@ class _EditDialog {
             onPressed: () async {
               Navigator.pop(context);
               final success = await controller.saveEdit(product.id);
-              controller.disposeEditControllers();
               if (success && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Berhasil diupdate")),
@@ -573,9 +562,10 @@ class _EditForm extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: controller.selectedEditCategory,
+            value: controller.selectedEditCategory,
             decoration: const InputDecoration(labelText: "Kategori"),
-            items: AppConstants.categories
+            items: controller.filterCategories
+                .where((c) => c != 'Semua') // hanya kategori asli
                 .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                 .toList(),
             onChanged: (v) {

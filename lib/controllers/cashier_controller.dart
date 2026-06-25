@@ -3,7 +3,7 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../models/product_model.dart';
 import '../models/cart_item_model.dart';
 import '../providers/cart_provider.dart';
-import '../services/local_db_service.dart'; // Diubah ke local_db_service
+import '../services/local_db_service.dart';
 import '../services/printer_service.dart';
 import '../services/security_service.dart';
 import '../services/sound_service.dart';
@@ -30,38 +30,77 @@ class CashierController extends ChangeNotifier {
   bool isPrinterLoading = false;
   bool withStruk = true;
 
-  // --- Scanner State (NEW FEATURES) ---
-  bool isScanning = false; // Indikator loading saat scan
-  DateTime? _lastScanTime; // Penampung waktu scan terakhir
+  // --- Scanner State ---
+  bool isScanning = false;
+  DateTime? _lastScanTime;
+
+  // --- Payment State ---
+  int _cashReceived = 0;
+  int get cashReceived => _cashReceived;
+
+  void updateCashReceived(String value) {
+    final cleanedValue = value.replaceAll('.', '').replaceAll(',', '').trim();
+    _cashReceived = int.tryParse(cleanedValue) ?? 0;
+    notifyListeners();
+  }
+
+  void setCashReceived(int amount) {
+    _cashReceived = amount;
+    notifyListeners();
+  }
+
+  void clearPayment() {
+    _cashReceived = 0;
+    notifyListeners();
+  }
+
+  int calculateChange(int totalAmount) {
+    if (_cashReceived <= totalAmount) return 0;
+    return _cashReceived - totalAmount;
+  }
+
+  bool isPaymentSufficient(int totalAmount) {
+    return _cashReceived >= totalAmount;
+  }
 
   // ==========================================================
-  // PRODUCT LOGIC
+  // PRODUCT LOGIC (OFFLINE OPTIMIZED)
   // ==========================================================
 
+  /// Ambil semua produk dari database lokal
   Future<void> fetchProductList() async {
     try {
-      // Mengambil daftar produk dari database lokal offline
       _allProducts = await LocalDbService.instance.getAllProducts();
       notifyListeners();
     } catch (error) {
       debugPrint('Error load produk: $error');
+      _allProducts = [];
+      notifyListeners();
     }
   }
 
-  void searchProducts(String query) {
-    if (query.isEmpty) {
+  /// Pencarian produk menggunakan database lokal (LIKE name & code)
+  Future<void> searchProducts(String query) async {
+    if (query.trim().isEmpty) {
       _searchResults = [];
-    } else {
-      _searchResults = _allProducts
-          .where(
-            (product) =>
-                product.name.toLowerCase().contains(query.toLowerCase()),
-          )
-          .toList();
+      notifyListeners();
+      return;
     }
-    notifyListeners();
+
+    try {
+      // Gunakan service database yang sudah mendukung pencarian via name dan code
+      _searchResults = await LocalDbService.instance.searchProducts(
+        query.trim(),
+      );
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error search products: $e');
+      _searchResults = [];
+      notifyListeners();
+    }
   }
 
+  /// Hapus hasil pencarian
   void clearSearch() {
     _searchResults = [];
     notifyListeners();
@@ -71,9 +110,9 @@ class CashierController extends ChangeNotifier {
   // CART & SCAN LOGIC
   // ==========================================================
 
+  /// Tambahkan produk ke keranjang dari hasil pencarian
   void addToCartFromSearch(Product product, CartProvider cart) {
     final currentQty = _getCurrentQuantityInCart(product.id, cart);
-
     if (currentQty < product.stock) {
       cart.addToCart(product);
       _showSuccessMessage('✅ ${product.name} (+1)');
@@ -82,42 +121,50 @@ class CashierController extends ChangeNotifier {
     }
   }
 
+  /// Handle hasil scan barcode (dengan debounce sederhana)
   Future<void> handleScannedBarcodeWithDelay(
     String rawCode,
     CartProvider cartProvider,
   ) async {
+    // Debounce 1.5 detik untuk mencegah double scan
     final now = DateTime.now();
-
-    if (_lastScanTime != null) {
-      final difference = now.difference(_lastScanTime!);
-      if (difference.inSeconds < 2) return;
-    }
+    if (_lastScanTime != null &&
+        now.difference(_lastScanTime!).inMilliseconds < 1500)
+      return;
     _lastScanTime = now;
+
     isScanning = true;
     notifyListeners();
 
-    await Future.delayed(const Duration(seconds: 1));
-
+    await Future.delayed(
+      const Duration(milliseconds: 300),
+    ); // sedikit delay untuk feedback UI
     await handleScannedCode(rawCode, cartProvider);
+
     isScanning = false;
     notifyListeners();
   }
 
+  /// Proses kode barcode mentah
   Future<void> handleScannedCode(
     String rawCode,
     CartProvider cartProvider,
   ) async {
     SoundService.playBeep();
 
-    final codeToSend = _processRawBarcode(rawCode);
-    final localProduct = _findLocalProduct(codeToSend);
+    final codeToFind = _processRawBarcode(rawCode);
 
-    if (localProduct != null) {
-      addToCartFromSearch(localProduct, cartProvider);
-      return;
+    // 1. Cari di list yang sudah di-fetch (lebih cepat)
+    Product? product = _findLocalProduct(codeToFind);
+
+    // 2. Jika tidak ada, cari langsung ke database
+    product ??= await LocalDbService.instance.getProductByCode(codeToFind);
+
+    if (product != null) {
+      addToCartFromSearch(product, cartProvider);
+    } else {
+      _showErrorMessage('Barang dengan kode "$codeToFind" tidak ditemukan');
     }
-
-    await _searchProductFromApi(codeToSend, cartProvider);
   }
 
   // ==========================================================
@@ -125,14 +172,23 @@ class CashierController extends ChangeNotifier {
   // ==========================================================
 
   Future<String?> processCheckout(CartProvider cart) async {
+    if (cart.items.isEmpty) {
+      _showWarningMessage('Keranjang masih kosong!');
+      return null;
+    }
+
     if (withStruk && !isPrinterConnected) {
       _showWarningMessage(
-        'Printer belum konek! Matikan opsi struk atau hubungkan.',
+        'Printer belum terhubung! Matikan opsi struk atau hubungkan printer.',
       );
       return null;
     }
 
-    // Melakukan proses checkout transaksi dan potong stok langsung di SQLite lokal
+    if (!isPaymentSufficient(cart.totalAmount)) {
+      _showWarningMessage('Uang pelanggan kurang!');
+      return null;
+    }
+
     final invoice = await LocalDbService.instance.checkout(
       cart.items,
       cart.totalAmount,
@@ -141,10 +197,10 @@ class CashierController extends ChangeNotifier {
     if (invoice != null) {
       await _handleSuccessfulCheckout(invoice, cart);
       return invoice;
+    } else {
+      _showErrorMessage('Gagal menyimpan transaksi lokal');
+      return null;
     }
-
-    _showErrorMessage('Gagal transaksi lokal');
-    return null;
   }
 
   // ==========================================================
@@ -154,12 +210,15 @@ class CashierController extends ChangeNotifier {
   void initPrinter() async {
     isPrinterLoading = true;
     notifyListeners();
-
-    final isConnected = await _printerService.checkConnection();
-    if (isConnected) {
-      devices = await _printerService.getPairedDevices();
+    try {
+      final isEnabled = await PrintBluetoothThermal.bluetoothEnabled;
+      if (isEnabled) {
+        devices = await PrintBluetoothThermal.pairedBluetooths;
+      }
+      isPrinterConnected = await PrintBluetoothThermal.connectionStatus;
+    } catch (e) {
+      debugPrint('Error init printer: $e');
     }
-
     isPrinterLoading = false;
     notifyListeners();
   }
@@ -176,6 +235,8 @@ class CashierController extends ChangeNotifier {
     if (connected) {
       selectedDevice = device;
       isPrinterConnected = true;
+    } else {
+      _showErrorMessage('Gagal terhubung ke printer');
     }
 
     isPrinterLoading = false;
@@ -191,8 +252,7 @@ class CashierController extends ChangeNotifier {
       _showWarningMessage('Printer belum terhubung!');
       return;
     }
-
-    _showInfoMessage('Sedang mencetak...');
+    _showInfoMessage('Mencetak struk...');
     await _printerService.printStruk(invoice, items, total);
   }
 
@@ -202,7 +262,7 @@ class CashierController extends ChangeNotifier {
   }
 
   // ==========================================================
-  // PRIVATE HELPER METHODS
+  // PRIVATE HELPERS
   // ==========================================================
 
   int _getCurrentQuantityInCart(int productId, CartProvider cart) {
@@ -212,36 +272,24 @@ class CashierController extends ChangeNotifier {
 
   String _processRawBarcode(String rawCode) {
     try {
+      // Jika panjang > 15 atau mengandung '=', coba dekripsi
       if (rawCode.length > 15 || rawCode.contains('=')) {
         final decrypted = SecurityService.decryptData(rawCode);
-        return decrypted.isNotEmpty ? decrypted : rawCode;
+        if (decrypted.isNotEmpty && decrypted != rawCode) {
+          return decrypted;
+        }
       }
-    } catch (error) {
-      debugPrint('Error decrypting barcode: $error');
+    } catch (e) {
+      debugPrint('Decrypt error: $e');
     }
-    return rawCode;
+    return rawCode.trim();
   }
 
   Product? _findLocalProduct(String code) {
     try {
-      return _allProducts.firstWhere((product) => product.code == code);
+      return _allProducts.firstWhere((p) => p.code == code);
     } catch (_) {
       return null;
-    }
-  }
-
-  Future<void> _searchProductFromApi(
-    String code,
-    CartProvider cartProvider,
-  ) async {
-    _showInfoMessage('Mencari barang...');
-    // Dialihkan untuk mencari kode barang di database lokal offline jika tidak ada di memory list
-    final product = await LocalDbService.instance.getProductByCode(code);
-
-    if (product != null) {
-      addToCartFromSearch(product, cartProvider);
-    } else {
-      _showErrorMessage('Barang tidak ditemukan!');
     }
   }
 
@@ -252,26 +300,28 @@ class CashierController extends ChangeNotifier {
     final transactionItems = List<CartItem>.from(cart.items);
     final transactionTotal = cart.totalAmount;
 
-    if (onShowTransactionSuccess != null) {
-      onShowTransactionSuccess!(invoice, transactionItems, transactionTotal);
-    }
+    // Panggil callback sukses
+    onShowTransactionSuccess?.call(invoice, transactionItems, transactionTotal);
+
+    // Cetak struk (background)
     if (withStruk) {
       _printerService
           .printStruk(invoice, transactionItems, transactionTotal)
-          .then((_) => print("Print background sukses"))
-          .catchError((e) => print("Print background gagal: $e"));
+          .then((_) => print("Cetak struk berhasil"))
+          .catchError((e) => print("Gagal cetak struk: $e"));
     }
 
-    fetchProductList();
+    // Refresh daftar produk (karena stok berubah)
+    await fetchProductList();
+    clearPayment();
     cart.clearCart();
   }
 
-  void _showSuccessMessage(String message) =>
-      onShowMessage?.call(message, Colors.green);
-  void _showWarningMessage(String message) =>
-      onShowMessage?.call(message, Colors.orange);
-  void _showErrorMessage(String message) =>
-      onShowMessage?.call(message, Colors.red);
-  void _showInfoMessage(String message) =>
-      onShowMessage?.call(message, Colors.blue);
+  // --- Feedback helpers ---
+  void _showSuccessMessage(String msg) =>
+      onShowMessage?.call(msg, Colors.green);
+  void _showWarningMessage(String msg) =>
+      onShowMessage?.call(msg, Colors.orange);
+  void _showErrorMessage(String msg) => onShowMessage?.call(msg, Colors.red);
+  void _showInfoMessage(String msg) => onShowMessage?.call(msg, Colors.blue);
 }

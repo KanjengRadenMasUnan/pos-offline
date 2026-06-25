@@ -6,7 +6,7 @@ import '../../controllers/add_product_controller.dart';
 import '../../models/product_model.dart';
 import '../../services/pdf_service.dart';
 import '../../services/security_service.dart';
-import '../../config/app_theme.dart'; // Pastikan import ini ada untuk warna tombol
+import '../../config/app_theme.dart';
 
 class AddProductPage extends StatelessWidget {
   const AddProductPage({super.key});
@@ -25,7 +25,6 @@ class AddProductPage extends StatelessWidget {
 }
 
 /* ================= APP BAR ================= */
-
 class _AppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
@@ -49,7 +48,6 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 /* ================= BODY ================= */
-
 class _Body extends StatelessWidget {
   const _Body();
 
@@ -76,16 +74,13 @@ class _Body extends StatelessWidget {
 }
 
 /* ================= SCANNER ================= */
-
 class _ScannerSection extends StatelessWidget {
   final AddProductController controller;
-
   const _ScannerSection({required this.controller});
 
   @override
   Widget build(BuildContext context) {
     final hasCode = controller.scannedBarcode != null;
-
     return InkWell(
       onTap: () => _openScanner(context, controller),
       borderRadius: BorderRadius.circular(12),
@@ -148,7 +143,6 @@ class _ScannerInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final code = controller.scannedBarcode;
-
     return Expanded(
       child: code != null
           ? Column(
@@ -186,7 +180,6 @@ class _ScannerInfo extends StatelessWidget {
 }
 
 /* ================= FORM ================= */
-
 class _FormSection extends StatelessWidget {
   final AddProductController controller;
   const _FormSection({required this.controller});
@@ -213,7 +206,7 @@ class _FormSection extends StatelessWidget {
           onSubmit: (_) => controller.saveProduct(context),
         ),
         const SizedBox(height: 20),
-        _CategoryDropdown(controller: controller),
+        _CategoryField(controller: controller),
       ],
     );
   }
@@ -250,9 +243,9 @@ class _InputField extends StatelessWidget {
   }
 }
 
-class _CategoryDropdown extends StatelessWidget {
+class _CategoryField extends StatelessWidget {
   final AddProductController controller;
-  const _CategoryDropdown({required this.controller});
+  const _CategoryField({required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -264,21 +257,85 @@ class _CategoryDropdown extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: controller.selectedCategory,
-          items: controller.categories
-              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-              .toList(),
-          onChanged: controller.setCategory,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: controller.selectedCategory,
+                items: controller.categories
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: (val) => controller.setCategory(val),
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
+              onPressed: () => _showAddCategoryDialog(context, controller),
+              tooltip: 'Tambah Kategori Baru',
+            ),
+          ],
         ),
       ],
     );
   }
 }
 
-/* ================= SAVE ================= */
+void _showAddCategoryDialog(
+  BuildContext context,
+  AddProductController controller,
+) {
+  final textCtrl = TextEditingController();
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Tambah Kategori'),
+      content: TextField(
+        controller: textCtrl,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: 'Nama kategori',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final name = textCtrl.text.trim();
+            if (name.isEmpty) return;
+            final success = await controller.addCategory(name);
+            if (ctx.mounted) Navigator.pop(ctx);
+            if (success && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Kategori "$name" ditambahkan')),
+              );
+            } else if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Kategori sudah ada atau tidak valid'),
+                ),
+              );
+            }
+          },
+          child: const Text('Simpan'),
+        ),
+      ],
+    ),
+  );
+}
 
+/* ================= SAVE ================= */
 class _SaveButton extends StatelessWidget {
   final AddProductController controller;
   const _SaveButton({required this.controller});
@@ -290,7 +347,7 @@ class _SaveButton extends StatelessWidget {
       height: 55,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor, // Gunakan warna tema
+          backgroundColor: AppTheme.primaryColor,
           foregroundColor: Colors.white,
         ),
         onPressed: controller.isLoading
@@ -308,7 +365,6 @@ class _SaveButton extends StatelessWidget {
 }
 
 /* ================= HELPERS ================= */
-
 Future<void> _handleSave(
   BuildContext context,
   AddProductController controller,
@@ -329,32 +385,25 @@ void _openScanner(BuildContext context, AddProductController controller) {
   Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (_) => ScannerView(
-        onDetect: (code) {
-          controller.setScannedCode(code);
-        },
-      ),
+      builder: (_) =>
+          ScannerView(onDetect: (code) => controller.setScannedCode(code)),
     ),
   );
 }
-
-/* ================= QR DIALOG (YANG DIPERBAIKI) ================= */
 
 void _showQrDialog(BuildContext context, Product product) {
   final pdfService = PdfService();
 
   showDialog(
     context: context,
-    // Menggunakan Dialog biasa (bukan AlertDialog) agar tidak error layout
     builder: (_) => Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(25),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Agar dialog tidak memenuhi layar
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Icon Sukses
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -368,8 +417,6 @@ void _showQrDialog(BuildContext context, Product product) {
               ),
             ),
             const SizedBox(height: 15),
-
-            // Judul
             const Text(
               "Produk Tersimpan",
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -380,8 +427,6 @@ void _showQrDialog(BuildContext context, Product product) {
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
             const SizedBox(height: 20),
-
-            // Container QR Code
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -399,29 +444,23 @@ void _showQrDialog(BuildContext context, Product product) {
               ),
             ),
             const SizedBox(height: 15),
-
-            // Nama Produk
             Text(
               product.name,
               textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 4),
-
             Text(
               product.code,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: 14,
-                fontFamily: 'monospace', // Font seperti kode komputer
+                fontFamily: 'monospace',
                 letterSpacing: 1,
               ),
             ),
-
             const SizedBox(height: 25),
-
-            // Tombol Aksi
             Row(
               children: [
                 Expanded(
@@ -463,10 +502,8 @@ void _showQrDialog(BuildContext context, Product product) {
 }
 
 /* ================= SEARCH SHEET ================= */
-
 void _showSearchSheet(BuildContext context) {
   final controller = context.read<AddProductController>();
-
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-
+import 'package:intl/date_symbol_data_local.dart';
 import 'config/app_theme.dart';
 import 'controllers/cashier_controller.dart';
 import 'controllers/server_status_controller.dart';
@@ -11,7 +11,8 @@ import 'services/api_service.dart';
 
 Future<void> main() async {
   await _initializeApp();
-
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
   runApp(const MyApp());
 }
 

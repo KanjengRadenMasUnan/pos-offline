@@ -3,11 +3,14 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../models/transaction_model.dart';
 import '../models/product_model.dart';
 import '../models/cart_item_model.dart';
-import '../services/api_service.dart';
+import '../services/local_db_service.dart'; // <-- Tambahkan import ini
 import '../services/printer_service.dart';
 
 class HistoryController extends ChangeNotifier {
-  final ApiService _api = ApiService();
+  // HAPUS: final ApiService _api = ApiService(); karena tidak digunakan lagi
+
+  final LocalDbService _db =
+      LocalDbService.instance; // <-- Gunakan LocalDbService
 
   List<BluetoothInfo> devices = [];
   BluetoothInfo? selectedDevice;
@@ -67,7 +70,7 @@ class HistoryController extends ChangeNotifier {
   }
 
   Future<void> reprintTransaction(TransactionModel transaction) async {
-    // 1. Cek koneksi printer
+    // ... (tidak ada perubahan di sini, sama seperti sebelumnya)
     final isConnected = await PrintBluetoothThermal.connectionStatus;
     if (!isConnected) {
       onShowMessage?.call(
@@ -83,21 +86,18 @@ class HistoryController extends ChangeNotifier {
         Colors.blue,
       );
 
-      // 2. Konversi TransactionItemModel -> CartItem
       final List<CartItem> cartItems = transaction.items.map((item) {
-        // Buat Product model dari data item
         final product = Product(
           id: item.productId,
           name: item.productName,
           price: item.price,
-          stock: 0, // Tidak diperlukan untuk cetak
-          code: '', // Tidak diperlukan untuk cetak
-          category: '', // Tidak diperlukan untuk cetak
+          stock: 0,
+          code: '',
+          category: '',
         );
         return CartItem(product: product, qty: item.qty);
       }).toList();
 
-      // 3. Panggil PrinterService (sama persis seperti di kasir)
       await _printerService.printStruk(
         transaction.invoiceNumber,
         cartItems,
@@ -110,17 +110,21 @@ class HistoryController extends ChangeNotifier {
     }
   }
 
+  // --- GANTI loadHistory() INI DARI API MENJADI LOCAL DB ---
   Future<void> loadHistory() async {
     isLoading = true;
     notifyListeners();
 
     try {
-      transactions = await _api.getTransactionHistory(
+      // Panggil local database, bukan API
+      transactions = await _db.getTransactionHistory(
         startDate: selectedDateRange?.start,
         endDate: selectedDateRange?.end,
       );
     } catch (e) {
       debugPrint('Error loading history: $e');
+      // Jika error, kosongkan transaksi
+      transactions = [];
     } finally {
       isLoading = false;
       notifyListeners();
@@ -128,7 +132,6 @@ class HistoryController extends ChangeNotifier {
   }
 
   // --- Filter Management ---
-
   void applyDateFilter(DateTimeRange range) {
     selectedDateRange = range;
     loadHistory();
@@ -140,7 +143,6 @@ class HistoryController extends ChangeNotifier {
   }
 
   // --- Private Helpers ---
-
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}';
   }

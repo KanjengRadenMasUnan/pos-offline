@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
+import '../../services/local_db_service.dart'; // Import LocalDbService
 import '../../controllers/server_status_controller.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -18,7 +19,6 @@ class SettingsPage extends StatelessWidget {
 }
 
 // --- APP BAR ---
-
 class _AppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,6 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 // --- MAIN CONTENT ---
-
 class _Body extends StatelessWidget {
   const _Body();
 
@@ -64,6 +63,25 @@ class _Body extends StatelessWidget {
 
         const Divider(height: 40),
 
+        // Section: Data & Backup
+        const _SectionHeader(title: "DATA & CADANGAN"),
+        _MenuTile(
+          icon: Icons.backup,
+          title: "Backup Database",
+          subtitle: "Simpan file .db ke perangkat",
+          color: Colors.teal,
+          onTap: () => _handleBackup(context),
+        ),
+        _MenuTile(
+          icon: Icons.restore,
+          title: "Pulihkan Database",
+          subtitle: "Ganti dengan file .db baru",
+          color: Colors.deepOrange,
+          onTap: () => _handleRestore(context),
+        ),
+
+        const Divider(height: 40),
+
         // Section: Akun
         const _SectionHeader(title: "AKUN & APLIKASI"),
         _MenuTile(
@@ -79,7 +97,6 @@ class _Body extends StatelessWidget {
 }
 
 // --- REUSABLE COMPONENTS ---
-
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader({required this.title});
@@ -208,6 +225,63 @@ void _showPrinterComingSoon(BuildContext context) {
       behavior: SnackBarBehavior.floating,
     ),
   );
+}
+
+Future<void> _handleBackup(BuildContext context) async {
+  try {
+    await LocalDbService.instance.shareDatabase();
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Gagal backup: $e")));
+    }
+  }
+}
+
+Future<void> _handleRestore(BuildContext context) async {
+  // Konfirmasi terlebih dahulu
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text("Pulihkan Database"),
+      content: const Text(
+        "Semua data saat ini akan diganti dengan data dari file .db yang dipilih. Lanjutkan?",
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text("Batal"),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text("Ya, Lanjutkan"),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm != true) return;
+
+  try {
+    final success = await LocalDbService.instance.importDatabase();
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "✅ Database berhasil dipulihkan! Silakan restart aplikasi jika ada kendala.",
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Gagal: $e")));
+    }
+  }
 }
 
 void _showLogoutConfirm(BuildContext context) {
