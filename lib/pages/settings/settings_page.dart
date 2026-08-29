@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
-import '../../services/local_db_service.dart'; // Import LocalDbService
+import '../../services/local_db_service.dart';
 import '../../controllers/server_status_controller.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -59,6 +59,15 @@ class _Body extends StatelessWidget {
           subtitle: "Cek koneksi bluetooth printer",
           color: Colors.orange,
           onTap: () => _showPrinterComingSoon(context),
+        ),
+
+        // [TAMBAHAN]: Menu Pengaturan Struk
+        _MenuTile(
+          icon: Icons.receipt_long,
+          title: "Pengaturan Struk",
+          subtitle: "Ubah nama toko, alamat, & ukuran kertas",
+          color: Colors.purple,
+          onTap: () => _showReceiptSettingDialog(context),
         ),
 
         const Divider(height: 40),
@@ -161,6 +170,120 @@ class _MenuTile extends StatelessWidget {
 
 // --- DIALOGS & LOGIC HELPERS ---
 
+// [TAMBAHAN]: Logika Dialog Popup Kustomisasi Struk
+void _showReceiptSettingDialog(BuildContext context) async {
+  final settings = await LocalDbService.instance.getReceiptSettings();
+
+  final nameController = TextEditingController(text: settings['store_name']);
+  final addressController = TextEditingController(
+    text: settings['store_address'],
+  );
+  final contactController = TextEditingController(
+    text: settings['store_contact'],
+  );
+  final footerController = TextEditingController(
+    text: settings['footer_message'],
+  );
+  int paperSize = settings['paper_size'] ?? 58;
+
+  if (!context.mounted) return;
+
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: const Text("Pengaturan Struk"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: "Nama Toko (Contoh: Nanda Cell)",
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: addressController,
+                  decoration: const InputDecoration(labelText: "Alamat Toko"),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: contactController,
+                  decoration: const InputDecoration(
+                    labelText: "Kontak / Sosial Media",
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: footerController,
+                  decoration: const InputDecoration(labelText: "Pesan Footer"),
+                ),
+                const SizedBox(height: 20),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "Ukuran Kertas Printer",
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+                DropdownButton<int>(
+                  isExpanded: true,
+                  value: paperSize,
+                  items: const [
+                    DropdownMenuItem(
+                      value: 58,
+                      child: Text("58mm (Printer Kecil)"),
+                    ),
+                    DropdownMenuItem(
+                      value: 80,
+                      child: Text("80mm (Printer Besar)"),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      if (val != null) paperSize = val;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Batal"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await LocalDbService.instance.updateReceiptSettings(
+                  nameController.text.trim(),
+                  addressController.text.trim(),
+                  contactController.text.trim(),
+                  footerController.text.trim(),
+                  paperSize,
+                );
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("✅ Pengaturan struk berhasil disimpan"),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: const Text("SIMPAN"),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 void _showUrlSettingDialog(BuildContext context) {
   final apiService = ApiService();
   final textController = TextEditingController(text: apiService.currentBaseUrl);
@@ -240,7 +363,6 @@ Future<void> _handleBackup(BuildContext context) async {
 }
 
 Future<void> _handleRestore(BuildContext context) async {
-  // Konfirmasi terlebih dahulu
   final confirm = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(

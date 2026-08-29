@@ -29,24 +29,28 @@ class LocalDbService {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3, // [TAMBAHAN]: Naik versi ke 3 untuk migrasi otomatis
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
   }
 
-  /// Membuat tabel database versi 1 dan upgrade ke versi 2
+  /// Membuat tabel database
   Future _createDB(Database db, int version) async {
     if (version == 1) {
       await _createDBv1(db);
       await _upgradeDBv2(db);
-    } else if (version >= 2) {
+      await _upgradeDBv3(db); // [TAMBAHAN]
+    } else if (version == 2) {
       await _createDBv2(db);
+      await _upgradeDBv3(db); // [TAMBAHAN]
+    } else if (version >= 3) {
+      await _createDBv2(db);
+      await _createDBv3(db); // [TAMBAHAN]
     }
   }
 
   Future _createDBv1(Database db) async {
-    // Tabel produk (tidak perlu deleted_at lagi)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,8 +63,6 @@ class LocalDbService {
         updated_at TEXT NOT NULL
       )
     ''');
-
-    // Tabel transaksi utama
     await db.execute('''
       CREATE TABLE IF NOT EXISTS transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,8 +73,6 @@ class LocalDbService {
         updated_at TEXT NOT NULL
       )
     ''');
-
-    // Tabel detail transaksi dengan foreign key ke products (NO ACTION default)
     await db.execute('''
       CREATE TABLE IF NOT EXISTS transaction_details (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,7 +101,6 @@ class LocalDbService {
         updated_at TEXT NOT NULL
       )
     ''');
-
     await db.execute('''
       CREATE TABLE IF NOT EXISTS transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,7 +111,6 @@ class LocalDbService {
         updated_at TEXT NOT NULL
       )
     ''');
-
     await db.execute('''
       CREATE TABLE IF NOT EXISTS transaction_details (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,8 +126,30 @@ class LocalDbService {
     ''');
   }
 
+  // [TAMBAHAN]: Membuat tabel pengaturan struk
+  Future _createDBv3(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS receipt_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        store_name TEXT NOT NULL,
+        store_address TEXT NOT NULL,
+        store_contact TEXT NOT NULL,
+        footer_message TEXT NOT NULL,
+        paper_size INTEGER NOT NULL
+      )
+    ''');
+
+    // Masukkan data bawaan (default)
+    await db.insert('receipt_settings', {
+      'store_name': 'NANDA CELL',
+      'store_address': 'Pusat Accessories & Service HP',
+      'store_contact': 'WhatsApp: 08xx-xxxx-xxxx',
+      'footer_message': 'Terima Kasih Atas Kunjungan Anda',
+      'paper_size': 58,
+    });
+  }
+
   Future<void> _upgradeDBv2(Database db) async {
-    // Hapus foreign key lama jika ada, lalu buat ulang tabel transaction_details dengan ON DELETE SET NULL
     await db.execute('DROP TABLE IF EXISTS transaction_details_old');
     await db.execute(
       'ALTER TABLE transaction_details RENAME TO transaction_details_old',
@@ -142,9 +162,68 @@ class LocalDbService {
     await db.execute('DROP TABLE IF EXISTS transaction_details_old');
   }
 
+  // [TAMBAHAN] Upgrade database ke v3
+  Future<void> _upgradeDBv3(Database db) async {
+    await _createDBv3(db);
+  }
+
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _upgradeDBv2(db);
+    }
+    if (oldVersion < 3) {
+      await _upgradeDBv3(db); // [TAMBAHAN] Eksekusi migrasi v3
+    }
+  }
+
+  // =========================================================================
+  // [TAMBAHAN] PENGATURAN STRUK (RECEIPT SETTINGS)
+  // =========================================================================
+
+  Future<Map<String, dynamic>> getReceiptSettings() async {
+    final db = await instance.database;
+    final result = await db.query('receipt_settings', limit: 1);
+    if (result.isNotEmpty) {
+      return result.first;
+    }
+    // Fallback darurat
+    return {
+      'store_name': 'NANDA CELL',
+      'store_address': 'Pusat Accessories & Service HP',
+      'store_contact': 'WhatsApp: 08xx-xxxx-xxxx',
+      'footer_message': 'Terima Kasih Atas Kunjungan Anda',
+      'paper_size': 58,
+    };
+  }
+
+  Future<bool> updateReceiptSettings(
+    String name,
+    String address,
+    String contact,
+    String footer,
+    int paperSize,
+  ) async {
+    final db = await instance.database;
+    final data = {
+      'store_name': name,
+      'store_address': address,
+      'store_contact': contact,
+      'footer_message': footer,
+      'paper_size': paperSize,
+    };
+
+    final count = await db.query('receipt_settings');
+    if (count.isEmpty) {
+      await db.insert('receipt_settings', data);
+      return true;
+    } else {
+      final updated = await db.update(
+        'receipt_settings',
+        data,
+        where: 'id = ?',
+        whereArgs: [count.first['id']],
+      );
+      return updated > 0;
     }
   }
 
@@ -152,14 +231,12 @@ class LocalDbService {
   // LOGIK MANAJEMEN PRODUK (CRUD HARD DELETE)
   // =========================================================================
 
-  /// Mengambil semua produk (tanpa filter deleted_at)
   Future<List<Product>> getAllProducts() async {
     final db = await instance.database;
     final result = await db.query('products', orderBy: 'name ASC');
     return result.map((json) => Product.fromJson(json)).toList();
   }
 
-  /// Cari barang berdasarkan nama atau barcode
   Future<List<Product>> searchProducts(String query) async {
     final db = await instance.database;
     final result = await db.rawQuery(
@@ -169,7 +246,6 @@ class LocalDbService {
     return result.map((json) => Product.fromJson(json)).toList();
   }
 
-  /// Cari satu produk berdasarkan kode (untuk scanner kasir)
   Future<Product?> getProductByCode(String code) async {
     final db = await instance.database;
     final maps = await db.query(
@@ -183,7 +259,6 @@ class LocalDbService {
     return null;
   }
 
-  /// Tambah produk baru dengan auto-generate kode BRG-XXXX jika tidak diberikan
   Future<Product?> addProduct(
     String name,
     int price,
@@ -198,7 +273,6 @@ class LocalDbService {
     if (code != null && code.trim().isNotEmpty) {
       finalCode = code.trim();
     } else {
-      // Cari nomor tertinggi dari seluruh kode BRG-XXXX
       final lastCodeResult = await db.rawQuery(
         "SELECT MAX(CAST(SUBSTR(code, 5) AS INTEGER)) as max_num FROM products WHERE code LIKE 'BRG-%'",
       );
@@ -228,7 +302,6 @@ class LocalDbService {
     );
   }
 
-  /// Update produk
   Future<bool> updateProduct(
     int id,
     String name,
@@ -256,7 +329,6 @@ class LocalDbService {
     return count > 0;
   }
 
-  /// HAPUS PERMANEN (HARD DELETE)
   Future<bool> deleteProduct(int id) async {
     final db = await instance.database;
     final count = await db.delete('products', where: 'id = ?', whereArgs: [id]);
@@ -379,8 +451,6 @@ class LocalDbService {
 
     return formattedList;
   }
-
-  // --- Query Laporan ---
 
   Future<int> getDailyTotalIncome(DateTime date) async {
     final db = await instance.database;
@@ -513,7 +583,6 @@ class LocalDbService {
   // EXPORT & IMPORT DATABASE (BACKUP .DB)
   // =========================================================================
 
-  /// Menyalin file database ke folder sementara dan mengembalikan path-nya
   Future<String> exportDatabase() async {
     final dbPath = await getDatabasesPath();
     final original = join(dbPath, 'nanda_cell.db');
@@ -527,32 +596,26 @@ class LocalDbService {
     return backupFile.path;
   }
 
-  /// Membagikan file database langsung ke aplikasi lain
   Future<void> shareDatabase() async {
     final path = await exportDatabase();
     await Share.shareXFiles([XFile(path)], text: 'Backup Database NandaCell');
   }
 
-  /// Mengimpor file .db baru: pilih file, timpa database lama, lalu reset koneksi
   Future<bool> importDatabase() async {
-    // 1. Pilih file .db dari penyimpanan
     final result = await FilePicker.platform.pickFiles(type: FileType.any);
 
     if (result == null || result.files.isEmpty) return false;
     final selectedFile = File(result.files.single.path!);
 
-    // 2. Validasi ekstensi (opsional)
     if (!selectedFile.path.toLowerCase().endsWith('.db')) {
       throw Exception('Format file tidak didukung. Harap pilih file .db');
     }
 
-    // 3. Tutup database yang sedang berjalan
     if (_database != null) {
       await _database!.close();
       _database = null;
     }
 
-    // 4. Hapus database lama
     final dbPath = await getDatabasesPath();
     final targetPath = join(dbPath, 'nanda_cell.db');
     final targetFile = File(targetPath);
@@ -560,13 +623,11 @@ class LocalDbService {
       await targetFile.delete();
     }
 
-    // 5. Salin file baru ke lokasi database
     await selectedFile.copy(targetPath);
 
     return true;
   }
 
-  // Helper untuk mengubah tanggal database ISO8601 ke pola tampilan UI lama
   String _formatDisplayDate(String isoString) {
     try {
       final dateTime = DateTime.parse(isoString);
