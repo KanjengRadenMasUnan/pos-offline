@@ -3,7 +3,7 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
 
 import '../models/cart_item_model.dart';
-import 'local_db_service.dart'; // [TAMBAHAN]: Import database lokal
+import 'local_db_service.dart';
 
 class PrinterService {
   // --- CONNECTION METHODS ---
@@ -56,31 +56,22 @@ class PrinterService {
     required List<CartItem> items,
     required int total,
   }) async {
-    // [TAMBAHAN]: Ambil pengaturan struk dari database
     final settings = await LocalDbService.instance.getReceiptSettings();
-    final is80mm = settings['paper_size'] == 80;
-
     final profile = await CapabilityProfile.load();
-    // [TAMBAHAN]: Sesuaikan ukuran kertas dinamis (58mm atau 80mm)
-    final generator = Generator(
-      is80mm ? PaperSize.mm80 : PaperSize.mm58,
-      profile,
-    );
+    
+    // Kertas dipatenkan ke 58mm
+    final generator = Generator(PaperSize.mm58, profile);
     final bytes = <int>[];
 
-    final currencyFormatter = NumberFormat.currency(
-      locale: 'id_ID',
-      symbol: 'Rp ',
-      decimalDigits: 0,
-    );
+    // Format Rupiah rapi (Tanpa simbol Rp untuk item, dengan Rp untuk total)
+    final numFormat = NumberFormat('#,##0', 'id_ID');
+    final rpFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-    // Build Sequence (Melempar data settings ke builder)
-    bytes.addAll(_buildHeader(generator, settings, is80mm));
-    bytes.addAll(_buildInvoiceInfo(generator, invoice, is80mm));
-    bytes.addAll(_buildItemsList(generator, items, is80mm));
-    bytes.addAll(
-      _buildTotalSection(generator, currencyFormatter, total, is80mm),
-    );
+    // Build Sequence
+    bytes.addAll(_buildHeader(generator, settings));
+    bytes.addAll(_buildInvoiceInfo(generator, invoice));
+    bytes.addAll(_buildItemsList(generator, items, numFormat));
+    bytes.addAll(_buildTotalSection(generator, total, rpFormat));
     bytes.addAll(_buildFooter(generator, settings));
 
     return bytes;
@@ -88,156 +79,148 @@ class PrinterService {
 
   // --- COMPONENT BUILDERS ---
 
-  List<int> _buildHeader(
-    Generator generator,
-    Map<String, dynamic> settings,
-    bool is80mm,
-  ) {
+  List<int> _buildHeader(Generator generator, Map<String, dynamic> settings) {
     final bytes = <int>[];
-    String dashLine = is80mm
-        ? '------------------------------------------------'
-        : '--------------------------------';
+    const String dashLine = '--------------------------------'; // Tepat 32 karakter
 
+    // Nama Toko (Besar dan Tebal)
     bytes.addAll(
       generator.text(
-        settings['store_name'], // [TAMBAHAN]: Nama toko dinamis
+        settings['store_name'],
         styles: const PosStyles(
           align: PosAlign.center,
           bold: true,
           height: PosTextSize.size2,
           width: PosTextSize.size2,
+          fontType: PosFontType.fontA, // Kunci ke Font Normal
         ),
       ),
     );
-
+    
+    // Alamat Toko
     if (settings['store_address'].toString().isNotEmpty) {
       bytes.addAll(
         generator.text(
-          settings['store_address'], // [TAMBAHAN]: Alamat dinamis
-          styles: const PosStyles(align: PosAlign.center, bold: false),
+          settings['store_address'],
+          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
         ),
       );
     }
-
+    
+    // Kontak Toko
     if (settings['store_contact'].toString().isNotEmpty) {
       bytes.addAll(
         generator.text(
-          settings['store_contact'], // [TAMBAHAN]: Kontak dinamis
-          styles: const PosStyles(align: PosAlign.center, bold: false),
+          settings['store_contact'],
+          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
         ),
       );
     }
 
+    bytes.addAll(generator.feed(1)); // Spasi 1 baris
     bytes.addAll(
       generator.text(
-        dashLine, // [TAMBAHAN]: Garis dinamis menyesuaikan kertas
-        styles: const PosStyles(align: PosAlign.center),
+        dashLine,
+        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
       ),
     );
     return bytes;
   }
 
-  List<int> _buildInvoiceInfo(
-    Generator generator,
-    String invoice,
-    bool is80mm,
-  ) {
+  List<int> _buildInvoiceInfo(Generator generator, String invoice) {
     final bytes = <int>[];
-    String dashLine = is80mm
-        ? '------------------------------------------------'
-        : '--------------------------------';
-
-    // Sesuaikan lebar kolom grid berdasarkan ukuran kertas
-    int leftWidth = is80mm ? 6 : 6;
-    int rightWidth = is80mm ? 6 : 6;
-
+    const String dashLine = '--------------------------------';
+    
+    // Di 58mm, No Struk dan Tanggal ditumpuk atas-bawah agar tidak tabrakan
     bytes.addAll(
-      generator.row([
-        PosColumn(text: 'No: $invoice', width: leftWidth),
-        PosColumn(
-          text: DateFormat('dd/MM/yy HH:mm').format(DateTime.now()),
-          width: rightWidth,
-          styles: const PosStyles(align: PosAlign.right),
-        ),
-      ]),
+      generator.text(
+        'No  : $invoice',
+        styles: const PosStyles(fontType: PosFontType.fontA),
+      ),
     );
     bytes.addAll(
-      generator.text(dashLine, styles: const PosStyles(align: PosAlign.center)),
+      generator.text(
+        'Tgl : ${DateFormat('dd-MM-yyyy HH:mm').format(DateTime.now())}',
+        styles: const PosStyles(fontType: PosFontType.fontA),
+      ),
+    );
+
+    bytes.addAll(
+      generator.text(
+        dashLine,
+        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
+      ),
     );
     return bytes;
   }
 
-  List<int> _buildItemsList(
-    Generator generator,
-    List<CartItem> items,
-    bool is80mm,
-  ) {
+  List<int> _buildItemsList(Generator generator, List<CartItem> items, NumberFormat numFormat) {
     final bytes = <int>[];
-    String dashLine = is80mm
-        ? '------------------------------------------------'
-        : '--------------------------------';
-
+    const String dashLine = '--------------------------------';
+    
     for (final item in items) {
+      // Baris 1: Nama Produk (Bold agar menonjol)
       bytes.addAll(
         generator.text(
           item.product.name.toUpperCase(),
-          styles: const PosStyles(bold: false),
+          styles: const PosStyles(bold: true, fontType: PosFontType.fontA),
         ),
       );
-
-      int leftWidth = is80mm ? 8 : 7;
-      int rightWidth = is80mm ? 4 : 5;
-
+      
+      // Baris 2: Qty x Harga (Kiri) & Subtotal (Kanan)
       bytes.addAll(
         generator.row([
           PosColumn(
-            text: '  ${item.qty} x ${item.product.price}',
-            width: leftWidth,
-            styles: const PosStyles(bold: false),
+            text: '${item.qty} x ${numFormat.format(item.product.price)}',
+            width: 7, // Lebar kiri 7/12
+            styles: const PosStyles(fontType: PosFontType.fontA),
           ),
           PosColumn(
-            text: '${item.qty * item.product.price}',
-            width: rightWidth,
-            styles: const PosStyles(align: PosAlign.right),
+            text: numFormat.format(item.qty * item.product.price),
+            width: 5, // Lebar kanan 5/12
+            styles: const PosStyles(align: PosAlign.right, fontType: PosFontType.fontA),
           ),
         ]),
       );
     }
+    
     bytes.addAll(
-      generator.text(dashLine, styles: const PosStyles(align: PosAlign.center)),
+      generator.text(
+        dashLine,
+        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
+      ),
     );
     return bytes;
   }
 
   List<int> _buildTotalSection(
     Generator generator,
-    NumberFormat currencyFormatter,
     int total,
-    bool is80mm,
+    NumberFormat rpFormat
   ) {
     final bytes = <int>[];
-    String equalsLine = is80mm
-        ? '================================================'
-        : '================================';
+    const String equalLine = '================================';
 
+    // Baris Total Akhir
     bytes.addAll(
       generator.row([
         PosColumn(
-          text: 'TOTAL AKHIR',
-          width: 6,
-          styles: const PosStyles(bold: true),
+          text: 'TOTAL',
+          width: 5,
+          styles: const PosStyles(bold: true, fontType: PosFontType.fontA),
         ),
         PosColumn(
-          text: currencyFormatter.format(total),
-          width: 6,
-          styles: const PosStyles(align: PosAlign.right, bold: true),
+          text: rpFormat.format(total),
+          width: 7,
+          styles: const PosStyles(align: PosAlign.right, bold: true, fontType: PosFontType.fontA),
         ),
       ]),
     );
+
     bytes.addAll(
       generator.text(
-        equalsLine,
-        styles: const PosStyles(align: PosAlign.center),
+        equalLine,
+        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
       ),
     );
     return bytes;
@@ -246,35 +229,34 @@ class PrinterService {
   List<int> _buildFooter(Generator generator, Map<String, dynamic> settings) {
     final bytes = <int>[];
 
+    // Pesan Terima Kasih
     if (settings['footer_message'].toString().isNotEmpty) {
       bytes.addAll(
         generator.text(
-          settings['footer_message'], // [TAMBAHAN]: Footer dinamis
-          styles: const PosStyles(align: PosAlign.center),
+          settings['footer_message'],
+          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
         ),
       );
     }
 
     bytes.addAll(generator.feed(1));
 
+    // Ketentuan Garansi (Hanya dimunculkan jika ini konter HP)
     bytes.addAll(
       generator.text(
         'UNTUK KLAIM GARANSI',
-        styles: const PosStyles(align: PosAlign.center, bold: true),
+        styles: const PosStyles(align: PosAlign.center, bold: true, fontType: PosFontType.fontA),
       ),
     );
-
     bytes.addAll(
       generator.text(
-        'PASTIKAN STRUK INI TIDAK HILANG',
-        styles: const PosStyles(
-          align: PosAlign.center,
-          fontType: PosFontType.fontB,
-        ),
+        'Harap bawa struk ini',
+        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
       ),
     );
 
-    bytes.addAll(generator.feed(2));
+    // Kertas didorong keluar 3 baris agar mudah disobek
+    bytes.addAll(generator.feed(3));
     bytes.addAll(generator.cut());
 
     return bytes;
