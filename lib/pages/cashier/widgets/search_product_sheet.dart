@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../config/app_theme.dart';
 import '../../../controllers/cashier_controller.dart';
 import '../../../models/product_model.dart';
 import '../../../providers/cart_provider.dart';
@@ -15,8 +17,6 @@ class SearchProductSheet extends StatefulWidget {
 
 class _SearchProductSheetState extends State<SearchProductSheet> {
   final TextEditingController _searchCtrl = TextEditingController();
-
-  // --- Lifecycle ---
 
   @override
   void initState() {
@@ -36,12 +36,10 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
     });
   }
 
-  // --- Main Build ---
-
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: 0.9,
+      initialChildSize: 0.88,
       minChildSize: 0.5,
       maxChildSize: 0.95,
       builder: (_, scrollController) {
@@ -50,13 +48,31 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              _buildHeader(),
-              const SizedBox(height: 10),
-              _buildSearchField(),
-              const SizedBox(height: 10),
+              // Drag handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBorderColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 12),
+                    _buildSearchField(),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
               Expanded(child: _buildSearchResults(scrollController)),
             ],
           ),
@@ -65,18 +81,28 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
     );
   }
 
-  // --- Header & Input Widgets ---
-
   Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Text(
-          'Cari Produk',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          'Pencarian Produk',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textPrimary,
+            letterSpacing: -0.2,
+          ),
         ),
         IconButton(
-          icon: const Icon(Icons.close),
+          icon: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.close, size: 16, color: AppTheme.textSecondary),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ],
@@ -84,22 +110,42 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
   }
 
   Widget _buildSearchField() {
-    return TextField(
-      controller: _searchCtrl,
-      autofocus: true,
-      decoration: InputDecoration(
-        hintText: 'Ketik nama barang...',
-        prefixIcon: const Icon(Icons.search),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.backgroundColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.cardBorderColor),
       ),
-      onChanged: (value) {
-        context.read<CashierController>().searchProducts(value);
-      },
+      child: TextField(
+        controller: _searchCtrl,
+        autofocus: true,
+        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+        decoration: InputDecoration(
+          hintText: 'Ketik nama barang...',
+          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+          prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.textSecondary),
+          suffixIcon: _searchCtrl.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 16, color: AppTheme.textSecondary),
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    context.read<CashierController>().clearSearch();
+                    setState(() {});
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+        onChanged: (value) {
+          setState(() {});
+          context.read<CashierController>().searchProducts(value);
+        },
+      ),
     );
   }
-
-  // --- Search Results Logic ---
 
   Widget _buildSearchResults(ScrollController scrollController) {
     return Consumer2<CashierController, CartProvider>(
@@ -116,8 +162,10 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
 
         return ListView.separated(
           controller: scrollController,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           itemCount: results.length,
-          separatorBuilder: (_, _) => const Divider(),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, index) {
             return _buildProductItem(
               context,
@@ -131,8 +179,6 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
     );
   }
 
-  // --- Item & State Widgets ---
-
   Widget _buildProductItem(
     BuildContext context,
     Product product,
@@ -141,27 +187,97 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
   ) {
     final remainingStock = _calculateRemainingStock(product, cart);
     final hasStock = remainingStock > 0;
+    final isLowStock = remainingStock > 0 && remainingStock <= 5;
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        product.name,
-        style: const TextStyle(fontWeight: FontWeight.bold),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.cardBorderColor),
       ),
-      subtitle: Text(
-        'Stok: $remainingStock  |  ${CurrencyFormat.convertToIdr(product.price, 0)}',
-        style: TextStyle(color: hasStock ? Colors.grey[600] : Colors.red),
-      ),
-      trailing: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: hasStock ? Colors.green : Colors.grey,
-          shape: const CircleBorder(),
-          padding: const EdgeInsets.all(10),
-        ),
-        onPressed: hasStock
-            ? () => controller.addToCartFromSearch(product, cart)
-            : null,
-        child: const Icon(Icons.add, color: Colors.white),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      CurrencyFormat.convertToIdr(product.price, 0),
+                      style: const TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: !hasStock
+                            ? AppTheme.errorColor.withValues(alpha: 0.1)
+                            : (isLowStock
+                                ? AppTheme.warningColor.withValues(alpha: 0.1)
+                                : AppTheme.successColor.withValues(alpha: 0.1)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        !hasStock
+                            ? 'Stok Habis'
+                            : (isLowStock ? 'Sisa $remainingStock' : 'Stok: $remainingStock'),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: !hasStock
+                              ? AppTheme.errorColor
+                              : (isLowStock ? AppTheme.warningColor : AppTheme.successColor),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: hasStock ? AppTheme.primaryDark : const Color(0xFFE2E8F0),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              minimumSize: const Size(0, 36),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: hasStock
+                ? () {
+                    HapticFeedback.lightImpact();
+                    controller.addToCartFromSearch(product, cart);
+                  }
+                : null,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add, size: 16),
+                SizedBox(width: 4),
+                Text("Tambah", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -170,12 +286,12 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.keyboard, size: 50, color: Colors.grey[300]),
-          const SizedBox(height: 10),
+        children: const [
+          Icon(Icons.keyboard_alt_outlined, size: 44, color: AppTheme.textMuted),
+          SizedBox(height: 10),
           Text(
             'Ketik nama barang untuk mencari',
-            style: TextStyle(color: Colors.grey[500]),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
           ),
         ],
       ),
@@ -184,14 +300,19 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
 
   Widget _buildNoResultsState() {
     return Center(
-      child: Text(
-        'Barang tidak ditemukan',
-        style: TextStyle(color: Colors.grey[400]),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.search_off_rounded, size: 44, color: AppTheme.textMuted),
+          SizedBox(height: 10),
+          Text(
+            'Barang tidak ditemukan',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+          ),
+        ],
       ),
     );
   }
-
-  // --- Helper Logic ---
 
   int _calculateRemainingStock(Product product, CartProvider cart) {
     try {

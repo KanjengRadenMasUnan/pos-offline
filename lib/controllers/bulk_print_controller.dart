@@ -93,7 +93,9 @@ class BulkPrintController extends ChangeNotifier {
 
       await _pdfService.printBulkLabels(itemsToPrint);
     } catch (error) {
-      _showPrintError(context, error);
+      if (context.mounted) {
+        _showPrintError(context, error);
+      }
     } finally {
       isLoading = false;
       notifyListeners();

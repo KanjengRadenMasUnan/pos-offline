@@ -102,7 +102,7 @@ class AddProductController extends ChangeNotifier {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Kode "${scannedBarcode}" sudah digunakan oleh produk "${existingProduct.name}".',
+                'Kode "$scannedBarcode" sudah digunakan oleh produk "${existingProduct.name}".',
               ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 3),

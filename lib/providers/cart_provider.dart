@@ -7,6 +7,8 @@ class CartProvider with ChangeNotifier {
 
   List<CartItem> get items => _items;
 
+  int get totalQty => _items.fold(0, (sum, i) => sum + i.qty);
+
   int get totalAmount {
     int total = 0;
     for (var item in _items) {

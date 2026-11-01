@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,6 +9,8 @@ import 'package:file_picker/file_picker.dart';
 import '../models/product_model.dart';
 import '../models/transaction_model.dart';
 import '../models/cart_item_model.dart';
+import '../models/sales_analytics_model.dart';
+import 'sales_insight_engine.dart';
 
 class LocalDbService {
   static final LocalDbService instance = LocalDbService._init();
@@ -576,6 +577,266 @@ class LocalDbService {
     final db = await instance.database;
     return await db.rawQuery(
       'SELECT id, code, name, stock FROM products WHERE stock = 0 ORDER BY name ASC',
+    );
+  }
+
+  // =========================================================================
+  // LOGIK ANALISIS PENJUALAN
+  // =========================================================================
+
+  static const List<String> _monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  static const List<String> _monthShortNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+  ];
+
+  Future<List<int>> getAvailableTransactionYears() async {
+    final db = await instance.database;
+    final result = await db.rawQuery('''
+      SELECT DISTINCT substr(transaction_date, 1, 4) as yr 
+      FROM transactions 
+      WHERE transaction_date IS NOT NULL AND length(transaction_date) >= 4
+      ORDER BY yr DESC
+    ''');
+
+    final years = <int>{DateTime.now().year};
+    for (var row in result) {
+      final yrStr = row['yr'] as String?;
+      if (yrStr != null) {
+        final yrInt = int.tryParse(yrStr);
+        if (yrInt != null && yrInt > 2000 && yrInt < 2100) {
+          years.add(yrInt);
+        }
+      }
+    }
+    final list = years.toList()..sort((a, b) => b.compareTo(a));
+    return list;
+  }
+
+  Future<SalesAnalyticsSummary> getYearlyAnalytics(int year) async {
+    final db = await instance.database;
+    final startStr = '$year-01-01';
+    final endStr = '${year + 1}-01-01';
+
+    final result = await db.rawQuery('''
+      SELECT 
+        CAST(substr(transaction_date, 6, 2) AS INTEGER) as month_num,
+        COALESCE(SUM(total_amount), 0) as total_amount,
+        COUNT(*) as transaction_count
+      FROM transactions
+      WHERE transaction_date >= ? AND transaction_date < ?
+      GROUP BY month_num
+    ''', [startStr, endStr]);
+
+    final map = <int, Map<String, dynamic>>{};
+    for (var row in result) {
+      final mo = row['month_num'] as int;
+      map[mo] = row;
+    }
+
+    final dataPoints = <SalesAnalyticsDataPoint>[];
+    for (int m = 1; m <= 12; m++) {
+      final row = map[m];
+      final total = (row?['total_amount'] as int?) ?? 0;
+      final count = (row?['transaction_count'] as int?) ?? 0;
+      final mStr = m.toString().padLeft(2, '0');
+
+      dataPoints.add(SalesAnalyticsDataPoint(
+        label: _monthShortNames[m - 1],
+        fullLabel: '${_monthNames[m - 1]} $year',
+        totalAmount: total,
+        transactionCount: count,
+        dateKey: '$year-$mStr',
+      ));
+    }
+
+    final topProducts = await getTopSellingProducts(
+      startDate: DateTime(year, 1, 1),
+      endDate: DateTime(year + 1, 1, 1),
+    );
+
+    return _buildSummary(
+      scale: AnalyticsScale.yearly,
+      periodTitle: 'Tahun $year (12 Bulan)',
+      dataPoints: dataPoints,
+      topProducts: topProducts,
+    );
+  }
+
+  Future<SalesAnalyticsSummary> getMonthlyDailyAnalytics(int year, int month) async {
+    final db = await instance.database;
+    final mStr = month.toString().padLeft(2, '0');
+    final startStr = '$year-$mStr-01';
+    final nextMonth = month == 12 ? DateTime(year + 1, 1, 1) : DateTime(year, month + 1, 1);
+    final endStr = '${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}-01';
+
+    final result = await db.rawQuery('''
+      SELECT 
+        CAST(substr(transaction_date, 9, 2) AS INTEGER) as day_num,
+        COALESCE(SUM(total_amount), 0) as total_amount,
+        COUNT(*) as transaction_count
+      FROM transactions
+      WHERE transaction_date >= ? AND transaction_date < ?
+      GROUP BY day_num
+    ''', [startStr, endStr]);
+
+    final map = <int, Map<String, dynamic>>{};
+    for (var row in result) {
+      final day = row['day_num'] as int;
+      map[day] = row;
+    }
+
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final dataPoints = <SalesAnalyticsDataPoint>[];
+
+    for (int d = 1; d <= daysInMonth; d++) {
+      final row = map[d];
+      final total = (row?['total_amount'] as int?) ?? 0;
+      final count = (row?['transaction_count'] as int?) ?? 0;
+      final dStr = d.toString().padLeft(2, '0');
+
+      dataPoints.add(SalesAnalyticsDataPoint(
+        label: d.toString(),
+        fullLabel: '$d ${_monthNames[month - 1]} $year',
+        totalAmount: total,
+        transactionCount: count,
+        dateKey: '$year-$mStr-$dStr',
+      ));
+    }
+
+    final topProducts = await getTopSellingProducts(
+      startDate: DateTime(year, month, 1),
+      endDate: nextMonth,
+    );
+
+    return _buildSummary(
+      scale: AnalyticsScale.monthly,
+      periodTitle: '${_monthNames[month - 1]} $year',
+      dataPoints: dataPoints,
+      topProducts: topProducts,
+    );
+  }
+
+  Future<SalesAnalyticsSummary> getMonthRangeAnalytics(
+    int year,
+    int startMonth,
+    int endMonth,
+  ) async {
+    final db = await instance.database;
+    int fromM = startMonth;
+    int toM = endMonth;
+    if (fromM > toM) {
+      final tmp = fromM;
+      fromM = toM;
+      toM = tmp;
+    }
+
+    final startStr = '$year-${fromM.toString().padLeft(2, '0')}-01';
+    final nextMonth = toM == 12 ? DateTime(year + 1, 1, 1) : DateTime(year, toM + 1, 1);
+    final endStr = '${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}-01';
+
+    final result = await db.rawQuery('''
+      SELECT 
+        CAST(substr(transaction_date, 6, 2) AS INTEGER) as month_num,
+        COALESCE(SUM(total_amount), 0) as total_amount,
+        COUNT(*) as transaction_count
+      FROM transactions
+      WHERE transaction_date >= ? AND transaction_date < ?
+      GROUP BY month_num
+    ''', [startStr, endStr]);
+
+    final map = <int, Map<String, dynamic>>{};
+    for (var row in result) {
+      final mo = row['month_num'] as int;
+      map[mo] = row;
+    }
+
+    final dataPoints = <SalesAnalyticsDataPoint>[];
+    for (int m = fromM; m <= toM; m++) {
+      final row = map[m];
+      final total = (row?['total_amount'] as int?) ?? 0;
+      final count = (row?['transaction_count'] as int?) ?? 0;
+      final mStr = m.toString().padLeft(2, '0');
+
+      dataPoints.add(SalesAnalyticsDataPoint(
+        label: _monthShortNames[m - 1],
+        fullLabel: '${_monthNames[m - 1]} $year',
+        totalAmount: total,
+        transactionCount: count,
+        dateKey: '$year-$mStr',
+      ));
+    }
+
+    final topProducts = await getTopSellingProducts(
+      startDate: DateTime(year, fromM, 1),
+      endDate: nextMonth,
+    );
+
+    return _buildSummary(
+      scale: AnalyticsScale.customRange,
+      periodTitle: '${_monthNames[fromM - 1]} s/d ${_monthNames[toM - 1]} $year',
+      dataPoints: dataPoints,
+      topProducts: topProducts,
+    );
+  }
+
+  SalesAnalyticsSummary _buildSummary({
+    required AnalyticsScale scale,
+    required String periodTitle,
+    required List<SalesAnalyticsDataPoint> dataPoints,
+    required List<Map<String, dynamic>> topProducts,
+  }) {
+    int totalRevenue = 0;
+    int totalTransactions = 0;
+    SalesAnalyticsDataPoint? highest;
+    SalesAnalyticsDataPoint? lowest;
+
+    for (var p in dataPoints) {
+      totalRevenue += p.totalAmount;
+      totalTransactions += p.transactionCount;
+
+      if (highest == null || p.totalAmount > highest.totalAmount) {
+        highest = p;
+      }
+      if (lowest == null || (p.totalAmount < lowest.totalAmount && p.totalAmount > 0)) {
+        lowest = p;
+      }
+    }
+
+    // Jika tidak ada data sama sekali (> 0), ambil elemen pertama
+    lowest ??= dataPoints.isNotEmpty ? dataPoints.first : null;
+
+    final double avg = dataPoints.isEmpty ? 0 : totalRevenue / dataPoints.length;
+
+    final baseSummary = SalesAnalyticsSummary(
+      scale: scale,
+      periodTitle: periodTitle,
+      totalRevenue: totalRevenue,
+      totalTransactions: totalTransactions,
+      averageRevenue: avg,
+      highestPoint: highest,
+      lowestPoint: lowest,
+      dataPoints: dataPoints,
+      topProducts: topProducts,
+    );
+
+    final insights = SalesInsightEngine.generateInsights(summary: baseSummary);
+
+    return SalesAnalyticsSummary(
+      scale: scale,
+      periodTitle: periodTitle,
+      totalRevenue: totalRevenue,
+      totalTransactions: totalTransactions,
+      averageRevenue: avg,
+      highestPoint: highest,
+      lowestPoint: lowest,
+      dataPoints: dataPoints,
+      topProducts: topProducts,
+      insights: insights,
     );
   }
 

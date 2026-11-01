@@ -129,8 +129,9 @@ class CashierController extends ChangeNotifier {
     // Debounce 1.5 detik untuk mencegah double scan
     final now = DateTime.now();
     if (_lastScanTime != null &&
-        now.difference(_lastScanTime!).inMilliseconds < 1500)
+        now.difference(_lastScanTime!).inMilliseconds < 1500) {
       return;
+    }
     _lastScanTime = now;
 
     isScanning = true;

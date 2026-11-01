@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../controllers/report_controller.dart';
-import '../../services/report_pdf_service.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
+import 'widgets/sales_analytics_view.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -43,7 +41,9 @@ class _ReportPageState extends State<ReportPage> {
       lastDate: DateTime.now(),
     );
     if (picked != null) {
-      _selectedDate = picked;
+      setState(() {
+        _selectedDate = picked;
+      });
       _loadReport();
     }
   }
@@ -65,193 +65,432 @@ class _ReportPageState extends State<ReportPage> {
     }
   }
 
-  Future<void> _exportPdf() async {
-    // Siapkan data
-    final reportTitle = _mode == 'Harian'
-        ? 'Laporan Harian'
-        : 'Laporan Bulanan';
-    final period = _mode == 'Harian'
-        ? DateFormat('dd MMMM yyyy', 'id_ID').format(_selectedDate)
-        : DateFormat(
-            'MMMM yyyy',
-            'id_ID',
-          ).format(DateTime(_selectedYear, _selectedMonth));
-
-    try {
-      final pdfService = ReportPdfService();
-      final file = await pdfService.generateReportPdf(
-        reportTitle: reportTitle,
-        period: period,
-        totalIncome: _controller.totalIncome,
-        topSelling: _controller.topSelling,
-        soldItems: _controller.soldItems,
-        lowStock: _controller.lowStock,
-        outOfStock: _controller.outOfStock,
-      );
-
-      // Bagikan atau cetak
-      await Share.shareXFiles([XFile(file.path)], text: 'Laporan $period');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal export PDF: $e')));
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Laporan Penjualan'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'Export PDF',
-            onPressed: _controller.isLoading ? null : _exportPdf,
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF0F172A),
+          elevation: 0,
+          title: const Text(
+            'Laporan & Analitik',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.3,
+              color: Color(0xFF0F172A),
+            ),
           ),
-        ],
-      ),
-      body: _controller.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Toggle Harian / Bulanan
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: 'Harian',
-                        label: Text(
-                          'Harian',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      ButtonSegment(
-                        value: 'Bulanan',
-                        label: Text(
-                          'Bulanan',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                    selected: {_mode},
-                    onSelectionChanged: (sel) {
-                      setState(() {
-                        _mode = sel.first;
-                      });
-                      _loadReport();
-                    },
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.resolveWith((
-                        states,
-                      ) {
-                        if (states.contains(WidgetState.selected)) {
-                          return Colors.blue.shade50;
-                        }
-                        return Colors.grey.shade100;
-                      }),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(56),
+            child: Container(
+              height: 44,
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TabBar(
+                dividerColor: Colors.transparent,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(9),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                labelColor: const Color(0xFF0F172A),
+                unselectedLabelColor: const Color(0xFF64748B),
+                labelStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: -0.2,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                ),
+                tabs: const [
+                  Tab(
+                    iconMargin: EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.receipt_long_rounded, size: 16),
+                        SizedBox(width: 6),
+                        Text('Rekap Transaksi'),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Pemilih Tanggal / Bulan
-                  if (_mode == 'Harian')
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(
-                          Icons.calendar_today,
-                          color: Colors.blue,
-                        ),
-                        title: Text(
-                          DateFormat(
-                            'EEEE, dd MMMM yyyy',
-                            'id_ID',
-                          ).format(_selectedDate),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        trailing: const Icon(Icons.edit),
-                        onTap: _pickDate,
-                      ),
-                    )
-                  else
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(
-                          Icons.calendar_month,
-                          color: Colors.blue,
-                        ),
-                        title: Text(
-                          DateFormat(
-                            'MMMM yyyy',
-                            'id_ID',
-                          ).format(DateTime(_selectedYear, _selectedMonth)),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        trailing: const Icon(Icons.edit),
-                        onTap: _pickMonth,
-                      ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.auto_graph_rounded, size: 16),
+                        SizedBox(width: 6),
+                        Text('Analisis & Grafik'),
+                      ],
                     ),
-                  const SizedBox(height: 20),
-
-                  // Total Pendapatan
-                  _buildIncomeCard(),
-                  const SizedBox(height: 20),
-
-                  // Barang Sering Terjual
-                  _buildSection(
-                    title: '🔥 Barang Paling Laris',
-                    icon: Icons.trending_up,
-                    color: Colors.orange,
-                    items: _controller.topSelling,
-                    emptyText: 'Belum ada data penjualan.',
-                    itemBuilder: (item) =>
-                        '${item['product_name']} — ${item['total_qty']}x',
                   ),
-                  const SizedBox(height: 16),
-
-                  // Daftar Barang Terjual (detail)
-                  _buildSection(
-                    title: '📋 Barang Terjual',
-                    icon: Icons.shopping_cart,
-                    color: Colors.green,
-                    items: _controller.soldItems,
-                    emptyText: 'Tidak ada transaksi di periode ini.',
-                    itemBuilder: (item) =>
-                        '${item['product_name']} — ${item['total_qty']} pcs (Rp ${NumberFormat('#,###').format(item['total_sales'])})',
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Stok Menipis
-                  _buildSection(
-                    title: '⚠️ Stok Menipis (≤ 5)',
-                    icon: Icons.warning_amber,
-                    color: Colors.red,
-                    items: _controller.lowStock,
-                    emptyText: 'Semua stok aman.',
-                    itemBuilder: (item) =>
-                        '${item['name']} (stok: ${item['stock']})',
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Stok Kosong
-                  _buildSection(
-                    title: '❌ Stok Habis',
-                    icon: Icons.block,
-                    color: Colors.grey,
-                    items: _controller.outOfStock,
-                    emptyText: 'Tidak ada barang kosong.',
-                    itemBuilder: (item) => '${item['name']}',
-                  ),
-                  const SizedBox(height: 40),
                 ],
               ),
             ),
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _controller.isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF2563EB),
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : _buildRekapTab(),
+            const SalesAnalyticsView(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRekapTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(18),
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Segmented Switch Mode (Harian / Bulanan)
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                _buildModeBtn(
+                  'Bulanan',
+                  'Rekap Bulanan',
+                  Icons.calendar_month_rounded,
+                ),
+                _buildModeBtn(
+                  'Harian',
+                  'Rekap Harian',
+                  Icons.calendar_today_rounded,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Pemilih Tanggal / Bulan
+          InkWell(
+            onTap: _mode == 'Harian' ? _pickDate : _pickMonth,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      _mode == 'Harian'
+                          ? Icons.calendar_today_rounded
+                          : Icons.calendar_month_rounded,
+                      color: const Color(0xFF2563EB),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _mode == 'Harian'
+                              ? 'Pilih Hari'
+                              : 'Pilih Bulan & Tahun',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          _mode == 'Harian'
+                              ? DateFormat(
+                                  'EEEE, dd MMMM yyyy',
+                                  'id_ID',
+                                ).format(_selectedDate)
+                              : DateFormat('MMMM yyyy', 'id_ID').format(
+                                  DateTime(_selectedYear, _selectedMonth),
+                                ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.unfold_more_rounded,
+                    size: 20,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Total Pendapatan
+          _buildIncomeCard(),
+          const SizedBox(height: 16),
+
+          // Produk Paling Laris
+          _buildSection(
+            title: 'Produk Paling Laris',
+            icon: Icons.trending_up_rounded,
+            iconColor: const Color(0xFF2563EB),
+            iconBg: const Color(0xFFEFF6FF),
+            items: _controller.topSelling,
+            emptyText: 'Belum ada data penjualan pada periode ini.',
+            itemBuilder: (item) => Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item['product_name'] ?? '-',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${item['total_qty']}x terjual',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Rincian Barang Terjual
+          _buildSection(
+            title: 'Rincian Barang Terjual',
+            icon: Icons.shopping_bag_outlined,
+            iconColor: const Color(0xFF059669),
+            iconBg: const Color(0xFFECFDF5),
+            items: _controller.soldItems,
+            emptyText: 'Tidak ada transaksi pada periode ini.',
+            itemBuilder: (item) => Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['product_name'] ?? '-',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      Text(
+                        '${item['total_qty']} pcs',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  'Rp ${NumberFormat('#,###').format(item['total_sales'])}',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Peringatan Stok Menipis
+          _buildSection(
+            title: 'Peringatan Stok Menipis (≤ 5)',
+            icon: Icons.warning_amber_rounded,
+            iconColor: const Color(0xFFD97706),
+            iconBg: const Color(0xFFFFFBEB),
+            items: _controller.lowStock,
+            emptyText: 'Semua persediaan stok aman.',
+            itemBuilder: (item) => Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item['name'] ?? '-',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Sisa ${item['stock']}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Stok Habis
+          _buildSection(
+            title: 'Persediaan Stok Habis (0)',
+            icon: Icons.remove_shopping_cart_outlined,
+            iconColor: const Color(0xFFDC2626),
+            iconBg: const Color(0xFFFEF2F2),
+            items: _controller.outOfStock,
+            emptyText: 'Tidak ada barang dengan stok habis.',
+            itemBuilder: (item) => Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item['name'] ?? '-',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                ),
+                const Text(
+                  'Habis',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeBtn(String val, String label, IconData icon) {
+    final isSelected = _mode == val;
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          if (_mode != val) {
+            setState(() {
+              _mode = val;
+            });
+            _loadReport();
+          }
+        },
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected
+                    ? const Color(0xFF2563EB)
+                    : const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -261,20 +500,21 @@ class _ReportPageState extends State<ReportPage> {
       symbol: 'Rp ',
       decimalDigits: 0,
     ).format(_controller.totalIncome);
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue.shade700, Colors.blue.shade400],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.shade200,
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -284,11 +524,12 @@ class _ReportPageState extends State<ReportPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Total Pendapatan',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 14,
+                  color: Color(0xFF94A3B8),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 4),
@@ -296,22 +537,23 @@ class _ReportPageState extends State<ReportPage> {
                 formatted,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 26,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
                 ),
               ),
             ],
           ),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
-              Icons.monetization_on,
-              color: Colors.white,
-              size: 36,
+              Icons.payments_rounded,
+              color: Color(0xFF38BDF8),
+              size: 26,
             ),
           ),
         ],
@@ -322,62 +564,62 @@ class _ReportPageState extends State<ReportPage> {
   Widget _buildSection({
     required String title,
     required IconData icon,
-    required Color color,
+    required Color iconColor,
+    required Color iconBg,
     required List<Map<String, dynamic>> items,
     required String emptyText,
-    required String Function(Map<String, dynamic>) itemBuilder,
+    required Widget Function(Map<String, dynamic>) itemBuilder,
   }) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
-                  ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ],
-            ),
-            const Divider(height: 20),
-            if (items.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  emptyText,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                ),
-              )
-            else
-              ...items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.circle, size: 8, color: Colors.grey),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          itemBuilder(item),
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Icon(icon, color: iconColor, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
                 ),
               ),
-          ],
-        ),
+            ],
+          ),
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                emptyText,
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              separatorBuilder: (_, _) =>
+                  const Divider(height: 14, color: Color(0xFFF8FAFC)),
+              itemBuilder: (context, index) => itemBuilder(items[index]),
+            ),
+        ],
       ),
     );
   }

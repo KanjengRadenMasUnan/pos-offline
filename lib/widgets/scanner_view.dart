@@ -189,7 +189,7 @@ class _ScannerOverlayPainter extends CustomPainter {
 
     // 2. Garis tepi kotak (lebih lembut)
     final borderPaint = Paint()
-      ..color = Colors.white.withOpacity(0.5)
+      ..color = Colors.white.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
     canvas.drawRect(focusRect, borderPaint);

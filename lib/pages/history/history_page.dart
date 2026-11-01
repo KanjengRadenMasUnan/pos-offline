@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/history_controller.dart';
@@ -15,10 +16,9 @@ class HistoryPage extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => HistoryController()
         ..loadHistory()
-        ..initPrinter(), // Inisialisasi printer saat halaman dibuat
+        ..initPrinter(),
       child: Builder(
         builder: (context) {
-          // Daftarkan callback snackbar ke controller
           final controller = Provider.of<HistoryController>(
             context,
             listen: false,
@@ -26,15 +26,20 @@ class HistoryPage extends StatelessWidget {
           controller.onShowMessage = (message, color) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(message),
+                content: Text(
+                  message,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
                 backgroundColor: color,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 duration: const Duration(seconds: 2),
               ),
             );
           };
           return Scaffold(
             backgroundColor: AppTheme.backgroundColor,
-            appBar: _buildAppBar(),
+            appBar: _buildAppBar(context),
             body: const _HistoryBody(),
           );
         },
@@ -42,18 +47,26 @@ class HistoryPage extends StatelessWidget {
     );
   }
 
-  AppBar _buildAppBar() {
+  AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      title: const Text("Riwayat Transaksi"),
-      backgroundColor: AppTheme.primaryColor,
-      foregroundColor: Colors.white,
-      actions: const [_RefreshButton()],
+      title: const Text(
+        "Riwayat Transaksi",
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 17,
+          color: AppTheme.textPrimary,
+          letterSpacing: -0.2,
+        ),
+      ),
+      actions: const [
+        _RefreshButton(),
+        SizedBox(width: 8),
+      ],
     );
   }
 }
 
 // --- MAIN BODY COMPONENTS ---
-
 class _HistoryBody extends StatelessWidget {
   const _HistoryBody();
 
@@ -61,8 +74,6 @@ class _HistoryBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: const [
-        // (Opsional) Header status printer bisa ditambahkan di sini tanpa mengubah filter
-        // _HistoryPrinterStatusHeader(), // Uncomment jika ingin seperti Kasir
         _FilterHeader(),
         Expanded(child: _TransactionList()),
       ],
@@ -78,21 +89,33 @@ class _TransactionList extends StatelessWidget {
     return Consumer<HistoryController>(
       builder: (_, controller, _) {
         if (controller.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          );
         }
 
         if (controller.transactions.isEmpty) {
           return const EmptyData(
             message: "Tidak ada transaksi pada periode ini",
-            icon: Icons.date_range_outlined,
+            icon: Icons.calendar_today_outlined,
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(15),
+        return ListView.separated(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           itemCount: controller.transactions.length,
-          itemBuilder: (_, i) =>
-              _TransactionCard(transaction: controller.transactions[i]),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
+          itemBuilder: (_, i) => _TransactionCard(
+            transaction: controller.transactions[i],
+          ),
         );
       },
     );
@@ -100,7 +123,6 @@ class _TransactionList extends StatelessWidget {
 }
 
 // --- FILTER & HEADER COMPONENTS ---
-
 class _FilterHeader extends StatelessWidget {
   const _FilterHeader();
 
@@ -108,73 +130,74 @@ class _FilterHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<HistoryController>(
       builder: (_, controller, _) {
+        final isFiltered = controller.selectedDateRange != null;
+
         return Container(
-          padding: const EdgeInsets.all(15),
-          decoration: _headerDecoration(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+            ),
+          ),
           child: Row(
             children: [
-              _FilterInfo(controller: controller),
-              if (controller.selectedDateRange != null)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "PERIODE LAPORAN",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textSecondary,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      controller.filterStatusText,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: AppTheme.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (isFiltered)
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.red),
+                  icon: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(Icons.close, size: 16, color: AppTheme.errorColor),
+                  ),
+                  tooltip: "Reset Filter",
                   onPressed: controller.resetFilter,
                 ),
-              ElevatedButton.icon(
+              const SizedBox(width: 6),
+              OutlinedButton.icon(
                 onPressed: () => _showDatePicker(context, controller),
-                icon: const Icon(Icons.calendar_month, size: 18),
-                label: const Text("Pilih Tanggal"),
-                style: _datePickerButtonStyle(),
+                icon: const Icon(Icons.calendar_month_outlined, size: 16),
+                label: Text(isFiltered ? "Ubah" : "Filter Tanggal"),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  side: const BorderSide(color: AppTheme.cardBorderColor),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),
         );
       },
-    );
-  }
-
-  BoxDecoration _headerDecoration() {
-    return BoxDecoration(
-      color: Colors.white,
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(0.1),
-          blurRadius: 5,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    );
-  }
-
-  ButtonStyle _datePickerButtonStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: AppTheme.primaryColor,
-      foregroundColor: Colors.white,
-      textStyle: const TextStyle(fontSize: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-    );
-  }
-}
-
-class _FilterInfo extends StatelessWidget {
-  final HistoryController controller;
-  const _FilterInfo({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Periode Laporan",
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          Text(
-            controller.filterStatusText,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -187,67 +210,153 @@ class _RefreshButton extends StatelessWidget {
     return Consumer<HistoryController>(
       builder: (_, controller, _) {
         return IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: controller.loadHistory,
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.cardBorderColor),
+            ),
+            child: const Icon(
+              Icons.refresh_rounded,
+              size: 18,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          tooltip: "Refresh Riwayat",
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            controller.loadHistory();
+          },
         );
       },
     );
   }
 }
 
-// --- TRANSACTION CARD & LIST ITEM ---
-
+// --- TRANSACTION CARD ---
 class _TransactionCard extends StatelessWidget {
   final TransactionModel transaction;
   const _TransactionCard({required this.transaction});
 
   @override
   Widget build(BuildContext context) {
-    // Ambil controller dari provider (listen: false agar tidak rebuild semua card)
     final controller = Provider.of<HistoryController>(context, listen: false);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        onTap: () => _showTransactionDetail(context, transaction, controller),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-        leading: _buildIcon(),
-        title: Text(
-          transaction.invoiceNumber,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(
-          transaction.createdAt,
-          style: TextStyle(color: Colors.grey[600], fontSize: 12),
-        ),
-        trailing: Text(
-          CurrencyFormat.convertToIdr(transaction.totalAmount, 0),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: Colors.green,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _showTransactionDetail(context, transaction, controller);
+        },
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.cardBorderColor, width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.receipt_outlined,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          transaction.invoiceNumber,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: AppTheme.textPrimary,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            "${transaction.items.length} item",
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      transaction.createdAt,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    CurrencyFormat.convertToIdr(transaction.totalAmount, 0),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.successColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      "Lunas",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.successColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-
-  Widget _buildIcon() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppTheme.seedColor.withOpacity(0.1),
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(Icons.receipt, color: AppTheme.primaryColor),
-    );
-  }
 }
 
 // --- DIALOGS & HELPER FUNCTIONS ---
-
 Future<void> _showDatePicker(
   BuildContext context,
   HistoryController controller,
@@ -259,8 +368,11 @@ Future<void> _showDatePicker(
     builder: (_, child) {
       return Theme(
         data: ThemeData.light().copyWith(
-          primaryColor: AppTheme.primaryColor,
-          colorScheme: const ColorScheme.light(primary: AppTheme.primaryColor),
+          primaryColor: AppTheme.primaryDark,
+          colorScheme: const ColorScheme.light(
+            primary: AppTheme.primaryDark,
+            surface: Colors.white,
+          ),
         ),
         child: child!,
       );
@@ -272,29 +384,51 @@ Future<void> _showDatePicker(
   }
 }
 
-// Fungsi ini sekarang menerima HistoryController
 void _showTransactionDetail(
   BuildContext context,
   TransactionModel transaction,
   HistoryController controller,
 ) {
-  bool isPrinting = false; // State lokal untuk tombol loading
+  bool isPrinting = false;
 
   showDialog(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setState) {
         return AlertDialog(
-          title: Column(
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                "Detail Transaksi",
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Detail Transaksi",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    transaction.invoiceNumber,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 5),
-              Text(
-                transaction.invoiceNumber,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondary),
+                onPressed: () => Navigator.pop(dialogContext),
               ),
             ],
           ),
@@ -304,28 +438,49 @@ void _showTransactionDetail(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _detailRow("ID Transaksi", "#${transaction.id}"),
-                  _detailRow("Tanggal", transaction.createdAt),
-                  const Divider(),
-                  const Text(
-                    "Barang yang dibeli:",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.cardBorderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        _detailRow("ID Transaksi", "#${transaction.id}"),
+                        const SizedBox(height: 4),
+                        _detailRow("Waktu", transaction.createdAt),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "Daftar Item Dibeli:",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   ...transaction.items.map(_itemCard),
-                  const Divider(),
+                  const Divider(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        "TOTAL BAYAR",
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        "TOTAL PEMBAYARAN",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                       Text(
                         CurrencyFormat.convertToIdr(transaction.totalAmount, 0),
                         style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
                           color: AppTheme.primaryColor,
                         ),
                       ),
@@ -336,29 +491,49 @@ void _showTransactionDetail(
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("Tutup"),
-            ),
-            ElevatedButton.icon(
-              onPressed: isPrinting
-                  ? null // Disable tombol saat proses cetak
-                  : () async {
-                      setState(() => isPrinting = true);
-                      // Tutup dialog agar tidak mengganggu
-                      Navigator.pop(dialogContext);
-                      // Panggil controller untuk mencetak
-                      await controller.reprintTransaction(transaction);
-                      // Set isPrinting = false tidak diperlukan karena dialog sudah ditutup
-                    },
-              icon: isPrinting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.print, size: 16),
-              label: Text(isPrinting ? "Mencetak..." : "Cetak Ulang"),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: AppTheme.cardBorderColor),
+                    ),
+                    child: const Text("Tutup", style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: AppTheme.primaryDark,
+                    ),
+                    onPressed: isPrinting
+                        ? null
+                        : () async {
+                            setState(() => isPrinting = true);
+                            Navigator.pop(dialogContext);
+                            await controller.reprintTransaction(transaction);
+                          },
+                    icon: isPrinting
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.print_rounded, size: 16),
+                    label: Text(
+                      isPrinting ? "Mencetak..." : "Cetak Ulang",
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         );
@@ -368,46 +543,65 @@ void _showTransactionDetail(
 }
 
 Widget _detailRow(String label, String value) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.grey)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-      ],
-    ),
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+      ),
+      Text(
+        value,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          color: AppTheme.textPrimary,
+        ),
+      ),
+    ],
   );
 }
 
 Widget _itemCard(TransactionItemModel item) {
   return Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    padding: const EdgeInsets.all(8),
+    margin: const EdgeInsets.only(bottom: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     decoration: BoxDecoration(
-      color: Colors.grey[100],
+      color: Colors.white,
       borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: AppTheme.cardBorderColor),
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    child: Row(
       children: [
-        Text(
-          item.productName,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.productName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: AppTheme.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "${item.qty}x @ ${CurrencyFormat.convertToIdr(item.price, 0)}",
+                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+            ],
+          ),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text("${item.qty} x ${CurrencyFormat.convertToIdr(item.price, 0)}"),
-            Text(
-              CurrencyFormat.convertToIdr(item.subtotal, 0),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
         Text(
-          "ID Produk: ${item.productId}",
-          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          CurrencyFormat.convertToIdr(item.subtotal, 0),
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            color: AppTheme.textPrimary,
+          ),
         ),
       ],
     ),

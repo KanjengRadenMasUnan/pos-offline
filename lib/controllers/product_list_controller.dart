@@ -234,7 +234,7 @@ class ProductListController extends ChangeNotifier {
     priceEditCtrl.text = product.price.toString();
     stockEditCtrl.text = product.stock.toString();
 
-    final incomingCategory = (product.category ?? 'Umum').trim();
+    final incomingCategory = product.category.trim();
     selectedEditCategory = _allCategories.firstWhere(
       (c) => c.toLowerCase() == incomingCategory.toLowerCase(),
       orElse: () => _allCategories.isNotEmpty ? _allCategories.first : 'Umum',

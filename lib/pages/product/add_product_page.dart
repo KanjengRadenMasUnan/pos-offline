@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/scanner_view.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -16,8 +17,8 @@ class AddProductPage extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AddProductController(),
       child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: _AppBar(),
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: const _AppBar(),
         body: const _Body(),
       ),
     );
@@ -26,19 +27,39 @@ class AddProductPage extends StatelessWidget {
 
 /* ================= APP BAR ================= */
 class _AppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _AppBar();
+
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: const Text("Input Barang Baru"),
-      elevation: 1,
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black,
+      title: const Text(
+        "Input Barang Baru",
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 17,
+          color: AppTheme.textPrimary,
+          letterSpacing: -0.2,
+        ),
+      ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.search),
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.cardBorderColor),
+            ),
+            child: const Icon(
+              Icons.search_rounded,
+              size: 18,
+              color: AppTheme.textPrimary,
+            ),
+          ),
           tooltip: "Cari data lama",
           onPressed: () => _showSearchSheet(context),
         ),
+        const SizedBox(width: 8),
       ],
     );
   }
@@ -56,14 +77,23 @@ class _Body extends StatelessWidget {
     return Consumer<AddProductController>(
       builder: (_, controller, _) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ScannerSection(controller: controller),
-              const SizedBox(height: 25),
-              _FormSection(controller: controller),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.cardBorderColor, width: 1),
+                ),
+                child: _FormSection(controller: controller),
+              ),
+              const SizedBox(height: 24),
               _SaveButton(controller: controller),
             ],
           ),
@@ -81,100 +111,108 @@ class _ScannerSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasCode = controller.scannedBarcode != null;
-    return InkWell(
-      onTap: () => _openScanner(context, controller),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: _decoration(hasCode),
-        child: Row(
-          children: [
-            _ScannerIcon(hasCode: hasCode),
-            const SizedBox(width: 15),
-            _ScannerInfo(controller: controller),
-            if (hasCode)
-              IconButton(
-                onPressed: controller.resetScan,
-                icon: const Icon(Icons.close, size: 18),
-                color: Colors.red,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _openScanner(context, controller);
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: hasCode ? AppTheme.successColor : AppTheme.cardBorderColor,
+              width: hasCode ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: hasCode
+                      ? AppTheme.successColor.withValues(alpha: 0.1)
+                      : AppTheme.primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  hasCode ? Icons.qr_code_2_rounded : Icons.qr_code_scanner_rounded,
+                  color: hasCode ? AppTheme.successColor : AppTheme.primaryColor,
+                  size: 22,
+                ),
               ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: hasCode
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Barcode Terdeteksi",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.successColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            controller.scannedBarcode!,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'monospace',
+                              fontSize: 14,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            "Scan Barcode Barang",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            "Ketuk untuk scan kamera (opsional)",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              if (hasCode)
+                IconButton(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    controller.resetScan();
+                  },
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  color: AppTheme.errorColor,
+                )
+              else
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: AppTheme.textMuted,
+                ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  BoxDecoration _decoration(bool hasCode) {
-    return BoxDecoration(
-      color: hasCode ? Colors.green.shade50 : Colors.grey.shade50,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: hasCode ? Colors.green : Colors.grey.shade300,
-        width: 1.5,
-      ),
-    );
-  }
-}
-
-class _ScannerIcon extends StatelessWidget {
-  final bool hasCode;
-  const _ScannerIcon({required this.hasCode});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: hasCode ? Colors.white : Colors.grey.shade200,
-        shape: BoxShape.circle,
-      ),
-      child: Icon(
-        hasCode ? Icons.qr_code_2 : Icons.qr_code_scanner,
-        color: hasCode ? Colors.green : Colors.grey,
-      ),
-    );
-  }
-}
-
-class _ScannerInfo extends StatelessWidget {
-  final AddProductController controller;
-  const _ScannerInfo({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    final code = controller.scannedBarcode;
-    return Expanded(
-      child: code != null
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Barcode Terdeteksi",
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  code,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  "Scan Barcode",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  "Tap untuk scan kamera",
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
     );
   }
 }
@@ -187,25 +225,29 @@ class _FormSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _InputField(
           label: "Nama Barang",
+          hint: "Contoh: Kuota Telkomsel 10GB",
           controller: controller.nameController,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         _InputField(
           label: "Harga Jual (Rp)",
+          hint: "Contoh: 35000",
           controller: controller.priceController,
           keyboardType: TextInputType.number,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         _InputField(
           label: "Stok Awal",
+          hint: "Contoh: 20",
           controller: controller.stockController,
           keyboardType: TextInputType.number,
-          onSubmit: (_) => controller.saveProduct(context),
+          onSubmit: (_) => _handleSave(context, controller),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         _CategoryField(controller: controller),
       ],
     );
@@ -214,12 +256,14 @@ class _FormSection extends StatelessWidget {
 
 class _InputField extends StatelessWidget {
   final String label;
+  final String? hint;
   final TextEditingController controller;
   final TextInputType? keyboardType;
   final Function(String)? onSubmit;
 
   const _InputField({
     required this.label,
+    this.hint,
     required this.controller,
     this.keyboardType,
     this.onSubmit,
@@ -230,13 +274,35 @@ class _InputField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          onSubmitted: onSubmit,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.cardBorderColor),
+          ),
+          child: TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            onSubmitted: onSubmit,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+          ),
         ),
       ],
     );
@@ -252,36 +318,53 @@ class _CategoryField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Kategori Produk",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: controller.selectedCategory,
-                items: controller.categories
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
-                onChanged: (val) => controller.setCategory(val),
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 14,
+            const Text(
+              "Kategori Produk",
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            InkWell(
+              onTap: () => _showAddCategoryDialog(context, controller),
+              borderRadius: BorderRadius.circular(6),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Text(
+                  "+ Tambah Baru",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.primaryColor,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
-              onPressed: () => _showAddCategoryDialog(context, controller),
-              tooltip: 'Tambah Kategori Baru',
-            ),
           ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.cardBorderColor),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: controller.selectedCategory,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              items: controller.categories
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (val) => controller.setCategory(val),
+            ),
+          ),
         ),
       ],
     );
@@ -296,21 +379,37 @@ void _showAddCategoryDialog(
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Tambah Kategori'),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text(
+        'Tambah Kategori',
+        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+      ),
       content: TextField(
         controller: textCtrl,
         autofocus: true,
-        decoration: const InputDecoration(
-          hintText: 'Nama kategori',
-          border: OutlineInputBorder(),
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          hintText: 'Nama kategori baru...',
+          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+          filled: true,
+          fillColor: AppTheme.backgroundColor,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: AppTheme.cardBorderColor),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Batal'),
+          child: const Text('Batal', style: TextStyle(color: AppTheme.textSecondary)),
         ),
         ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryDark,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          ),
           onPressed: () async {
             final name = textCtrl.text.trim();
             if (name.isEmpty) return;
@@ -318,7 +417,7 @@ void _showAddCategoryDialog(
             if (ctx.mounted) Navigator.pop(ctx);
             if (success && context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Kategori "$name" ditambahkan')),
+                SnackBar(content: Text('Kategori "$name" berhasil ditambahkan')),
               );
             } else if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -328,7 +427,7 @@ void _showAddCategoryDialog(
               );
             }
           },
-          child: const Text('Simpan'),
+          child: const Text('Simpan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
         ),
       ],
     ),
@@ -344,20 +443,26 @@ class _SaveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 55,
+      height: 48,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor,
+          backgroundColor: AppTheme.primaryDark,
           foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
         ),
         onPressed: controller.isLoading
             ? null
             : () => _handleSave(context, controller),
         child: controller.isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
             : const Text(
-                "SIMPAN BARANG",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                "SIMPAN PRODUK",
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
               ),
       ),
     );
@@ -377,7 +482,7 @@ Future<void> _handleSave(
   } else {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text("Data berhasil disimpan")));
+    ).showSnackBar(const SnackBar(content: Text("Data produk berhasil disimpan")));
   }
 }
 
@@ -397,70 +502,70 @@ void _showQrDialog(BuildContext context, Product product) {
   showDialog(
     context: context,
     builder: (_) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       backgroundColor: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(25),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(15),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: AppTheme.successColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.check_rounded,
-                color: Colors.green,
-                size: 40,
+                color: AppTheme.successColor,
+                size: 32,
               ),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 12),
             const Text(
               "Produk Tersimpan",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.textPrimary),
             ),
-            const SizedBox(height: 5),
-            Text(
-              "Barcode otomatis dibuat untuk:",
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            const SizedBox(height: 4),
+            const Text(
+              "QR Barcode otomatis berhasil dibuat:",
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: AppTheme.cardBorderColor),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: SizedBox(
-                height: 160,
-                width: 160,
+                height: 150,
+                width: 150,
                 child: QrImageView(
                   data: SecurityService.encryptData(product.code),
-                  size: 160,
+                  size: 150,
                   backgroundColor: Colors.white,
                 ),
               ),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 14),
             Text(
               product.name,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimary),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               product.code,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 12,
                 fontFamily: 'monospace',
-                letterSpacing: 1,
+                letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 25),
+            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
@@ -468,28 +573,22 @@ void _showQrDialog(BuildContext context, Product product) {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      side: const BorderSide(color: AppTheme.cardBorderColor),
                     ),
-                    child: const Text("Tutup"),
+                    child: const Text("Tutup", style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () =>
-                        pdfService.printWithDialog(context, product),
+                    onPressed: () => pdfService.printWithDialog(context, product),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
+                      backgroundColor: AppTheme.primaryDark,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
                     ),
-                    icon: const Icon(Icons.print_rounded, size: 18),
-                    label: const Text("Cetak"),
+                    icon: const Icon(Icons.print_rounded, size: 16),
+                    label: const Text("Cetak PDF", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
                   ),
                 ),
               ],
@@ -507,6 +606,7 @@ void _showSearchSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    backgroundColor: Colors.transparent,
     builder: (_) => _SearchSheet(
       onSearch: controller.searchProducts,
       onSelect: (product) {
@@ -540,38 +640,73 @@ class _SearchSheetState extends State<_SearchSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       padding: const EdgeInsets.all(20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            "Cari Produk",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Cari Data Barang Lama",
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textPrimary),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
           ),
-          const SizedBox(height: 15),
-          TextField(
-            autofocus: true,
-            onChanged: _search,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.cardBorderColor),
+            ),
+            child: TextField(
+              autofocus: true,
+              onChanged: _search,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                hintText: "Ketik nama barang...",
+                hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.textSecondary),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
             ),
           ),
-          const SizedBox(height: 15),
-          Expanded(
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 250,
             child: loading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.separated(
-                    separatorBuilder: (_, _) => const Divider(),
-                    itemCount: results.length,
-                    itemBuilder: (_, i) {
-                      final p = results[i];
-                      return ListTile(
-                        title: Text(p.name),
-                        onTap: () => widget.onSelect(p),
-                      );
-                    },
-                  ),
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : (results.isEmpty
+                    ? const Center(
+                        child: Text("Ketik minimal 2 huruf untuk mencari", style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                      )
+                    : ListView.separated(
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemCount: results.length,
+                        itemBuilder: (_, i) {
+                          final p = results[i];
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                            title: Text(p.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            subtitle: Text("Stok: ${p.stock} • Rp ${p.price}", style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                            trailing: const Icon(Icons.chevron_right, size: 16, color: AppTheme.textMuted),
+                            onTap: () => widget.onSelect(p),
+                          );
+                        },
+                      )),
           ),
         ],
       ),

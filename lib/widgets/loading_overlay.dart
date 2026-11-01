@@ -41,7 +41,7 @@ class LoadingOverlay extends StatelessWidget {
     return WillPopScope(
       onWillPop: () async => false,
       child: Container(
-        color: overlayColor.withOpacity(0.5),
+        color: overlayColor.withValues(alpha: 0.5),
         child: Center(child: _buildLoadingDialog(context)),
       ),
     );

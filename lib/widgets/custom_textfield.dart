@@ -112,7 +112,7 @@ class CustomTextField extends StatelessWidget {
     return InputDecoration(
       hintText: _getHintText(),
       hintStyle:
-          hintStyle ?? TextStyle(color: theme.hintColor.withOpacity(0.7)),
+          hintStyle ?? TextStyle(color: theme.hintColor.withValues(alpha: 0.7)),
       prefixText: isCurrency ? 'Rp ' : null,
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
@@ -132,7 +132,7 @@ class CustomTextField extends StatelessWidget {
         width: borderWidth != null ? borderWidth! + 0.5 : 1.5,
       ),
       filled: readOnly,
-      fillColor: readOnly ? theme.disabledColor.withOpacity(0.1) : null,
+      fillColor: readOnly ? theme.disabledColor.withValues(alpha: 0.1) : null,
       contentPadding: defaultContentPadding,
       errorMaxLines: 2,
     );

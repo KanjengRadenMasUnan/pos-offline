@@ -2,54 +2,73 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const Color primaryColor = Color(0xFF1565C0); // Biru Gelap
-  static const Color seedColor = Color(0xFF1E88E5); // Biru Standar
-  static const Color secondaryColor = Color(0xFFFF6F00); // Oranye (Aksen)
-  static const Color backgroundColor = Color(0xFFF5F5F5);
-  static const Color errorColor = Colors.redAccent;
+  // Brand & Palette Tokens (Refined Modern POS)
+  static const Color primaryColor = Color(0xFF2563EB); // Vibrant Modern Blue
+  static const Color primaryDark = Color(0xFF0F172A); // Deep Slate
+  static const Color seedColor = Color(0xFF3B82F6);
+  static const Color secondaryColor = Color(0xFF0F172A);
+  static const Color backgroundColor = Color(0xFFF8FAFC); // Slate 50
+  static const Color surfaceColor = Colors.white;
+  static const Color cardBorderColor = Color(0xFFE2E8F0); // Slate 200
+  static const Color textPrimary = Color(0xFF0F172A); // Slate 900
+  static const Color textSecondary = Color(0xFF64748B); // Slate 500
+  static const Color textMuted = Color(0xFF94A3B8); // Slate 400
+  static const Color successColor = Color(0xFF10B981); // Emerald 500
+  static const Color warningColor = Color(0xFFF59E0B); // Amber 500
+  static const Color errorColor = Color(0xFFEF4444); // Red 500
 
   // Definisi Tema Global
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-
-      // Skema Warna
       colorScheme: _buildColorScheme(),
-
-      // Font Global: Poppins
-      textTheme: GoogleFonts.poppinsTextTheme(),
-
+      textTheme: GoogleFonts.poppinsTextTheme().apply(
+        bodyColor: textPrimary,
+        displayColor: textPrimary,
+      ),
       appBarTheme: _buildAppBarTheme(),
       elevatedButtonTheme: _buildElevatedButtonTheme(),
+      outlinedButtonTheme: _buildOutlinedButtonTheme(),
       inputDecorationTheme: _buildInputDecorationTheme(),
       cardTheme: _buildCardTheme(),
+      dividerTheme: const DividerThemeData(
+        color: cardBorderColor,
+        thickness: 1,
+        space: 1,
+      ),
       pageTransitionsTheme: _buildPageTransitionsTheme(),
+      scaffoldBackgroundColor: backgroundColor,
     );
   }
 
   // Metode untuk membangun ColorScheme
   static ColorScheme _buildColorScheme() {
     return ColorScheme.fromSeed(
-      seedColor: seedColor,
+      seedColor: primaryColor,
       primary: primaryColor,
       secondary: secondaryColor,
-      surface: Colors.white,
-      // Di Flutter terbaru, properti 'background' dipindahkan ke 'surface'
-      // Namun jika ingin mendefinisikan background canvas secara spesifik:
+      surface: surfaceColor,
       error: errorColor,
     ).copyWith(
-      surface: backgroundColor, // Menggantikan parameter background yang deprecated
+      surface: surfaceColor,
     );
   }
 
   // Metode untuk membangun AppBarTheme
   static AppBarTheme _buildAppBarTheme() {
-    return const AppBarTheme(
-      backgroundColor: primaryColor,
-      foregroundColor: Colors.white,
+    return AppBarTheme(
+      backgroundColor: Colors.white,
+      foregroundColor: textPrimary,
       elevation: 0,
-      centerTitle: true,
-      iconTheme: IconThemeData(color: Color.fromARGB(255, 0, 0, 0)),
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      iconTheme: const IconThemeData(color: textPrimary, size: 22),
+      titleTextStyle: GoogleFonts.poppins(
+        color: textPrimary,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+      ),
     );
   }
 
@@ -59,10 +78,31 @@ class AppTheme {
       style: ElevatedButton.styleFrom(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: const TextStyle(fontWeight: FontWeight.bold),
-        elevation: 2,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: GoogleFonts.poppins(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  // Metode untuk membangun OutlinedButtonTheme
+  static OutlinedButtonThemeData _buildOutlinedButtonTheme() {
+    return OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: textPrimary,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        side: const BorderSide(color: cardBorderColor, width: 1.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: GoogleFonts.poppins(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
       ),
     );
   }
@@ -73,42 +113,43 @@ class AppTheme {
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: cardBorderColor, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.grey, width: 0.5),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: cardBorderColor, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: primaryColor, width: 2),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: primaryColor, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: errorColor, width: 1),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      labelStyle: const TextStyle(color: Colors.grey),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      labelStyle: const TextStyle(color: textSecondary, fontSize: 13),
+      hintStyle: const TextStyle(color: textMuted, fontSize: 13),
     );
   }
 
   static CardThemeData _buildCardTheme() {
     return CardThemeData(
       color: Colors.white,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: cardBorderColor, width: 1),
+      ),
       margin: const EdgeInsets.only(bottom: 12),
     );
   }
 
-  // Metode untuk membangun PageTransitionsTheme (SUDAH DIPERBAIKI)
   static PageTransitionsTheme _buildPageTransitionsTheme() {
     return const PageTransitionsTheme(
       builders: {
-        TargetPlatform.android: ZoomPageTransitionsBuilder(), 
-        // Mengganti CupertinoPageTransitionsBuilder dengan ZoomPageTransitionsBuilder
-        // agar lolos build di Flutter 3.44.x ke atas
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
         TargetPlatform.iOS: ZoomPageTransitionsBuilder(),
       },
     );

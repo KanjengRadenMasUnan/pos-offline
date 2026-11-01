@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
@@ -26,16 +27,11 @@ class _ProductListPageState extends State<ProductListPage> {
   }
 
   @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
       value: controller,
       child: Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: AppTheme.backgroundColor,
         appBar: const _ProductListAppBar(),
         body: const _Body(),
         floatingActionButton: const _AddButton(),
@@ -45,29 +41,40 @@ class _ProductListPageState extends State<ProductListPage> {
 }
 
 // --- APP BAR ---
-class _ProductListAppBar extends StatelessWidget
-    implements PreferredSizeWidget {
+class _ProductListAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _ProductListAppBar();
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      elevation: 0,
       title: const Text(
-        "Stok Barang",
-        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        "Katalog Produk",
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 17,
+          color: AppTheme.textPrimary,
+          letterSpacing: -0.2,
+        ),
       ),
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black,
       actions: [
         Consumer<ProductListController>(
           builder: (context, controller, _) {
             return PopupMenuButton<String>(
-              icon: const Icon(
-                Icons.import_export_rounded,
-                color: Colors.indigo,
+              icon: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.cardBorderColor),
+                ),
+                child: const Icon(
+                  Icons.import_export_rounded,
+                  size: 18,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               tooltip: "Kelola Excel",
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               onSelected: (value) {
                 if (value == 'export') {
                   controller.exportStokKeExcel();
@@ -80,9 +87,9 @@ class _ProductListAppBar extends StatelessWidget
                   value: 'export',
                   child: Row(
                     children: [
-                      Icon(Icons.upload_rounded, color: Colors.indigo),
+                      Icon(Icons.upload_file_rounded, color: AppTheme.primaryColor, size: 18),
                       SizedBox(width: 10),
-                      Text('Export Excel'),
+                      Text('Export ke Excel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -90,9 +97,9 @@ class _ProductListAppBar extends StatelessWidget
                   value: 'import',
                   child: Row(
                     children: [
-                      Icon(Icons.download_rounded, color: Colors.green),
+                      Icon(Icons.download_for_offline_rounded, color: AppTheme.successColor, size: 18),
                       SizedBox(width: 10),
-                      Text('Import Excel'),
+                      Text('Import dari Excel', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -101,7 +108,7 @@ class _ProductListAppBar extends StatelessWidget
           },
         ),
         const _SortButton(),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
       ],
     );
   }
@@ -131,19 +138,18 @@ class _HeaderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        border: Border(
+          bottom: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+        ),
       ),
       child: Column(
-        children: const [_SearchBar(), _CategoryFilter(), SizedBox(height: 10)],
+        children: const [
+          _SearchBar(),
+          _CategoryFilter(),
+          SizedBox(height: 10),
+        ],
       ),
     );
   }
@@ -159,7 +165,7 @@ class _ProductList extends StatelessWidget {
       builder: (_, controller, _) {
         if (controller.isLoading) {
           return const Padding(
-            padding: EdgeInsets.all(15),
+            padding: EdgeInsets.all(16),
             child: ShimmerList(),
           );
         }
@@ -169,23 +175,23 @@ class _ProductList extends StatelessWidget {
         }
 
         return AnimationLimiter(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(15),
+          child: ListView.separated(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
             itemCount: controller.products.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (_, index) {
               final product = controller.products[index];
               return AnimationConfiguration.staggeredList(
                 position: index,
-                duration: const Duration(milliseconds: 350),
+                duration: const Duration(milliseconds: 250),
                 child: SlideAnimation(
-                  verticalOffset: 50,
+                  verticalOffset: 20,
                   child: FadeInAnimation(
                     child: _ProductCard(
                       product: product,
-                      onEdit: () =>
-                          _EditDialog.show(context, product, controller),
-                      onDelete: () =>
-                          _DeleteDialog.show(context, product, controller),
+                      onEdit: () => _EditDialog.show(context, product, controller),
+                      onDelete: () => _DeleteDialog.show(context, product, controller),
                     ),
                   ),
                 ),
@@ -205,18 +211,26 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Consumer<ProductListController>(
-        builder: (_, controller, _) => TextField(
-          onChanged: controller.setSearch,
-          decoration: InputDecoration(
-            hintText: "Cari nama barang...",
-            prefixIcon: const Icon(Icons.search_rounded),
-            filled: true,
-            fillColor: Colors.grey[100],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+        builder: (_, controller, _) => Container(
+          height: 42,
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.cardBorderColor),
+          ),
+          child: TextField(
+            onChanged: controller.setSearch,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            decoration: const InputDecoration(
+              hintText: "Cari nama barang...",
+              hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.textSecondary),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             ),
           ),
         ),
@@ -231,28 +245,44 @@ class _CategoryFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 36,
       child: Consumer<ProductListController>(
         builder: (_, controller, _) => ListView.builder(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 15),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           itemCount: controller.filterCategories.length,
           itemBuilder: (_, index) {
             final category = controller.filterCategories[index];
             final selected = controller.selectedCategory == category;
 
             return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(category),
-                selected: selected,
-                onSelected: (_) => controller.setCategory(category),
-                selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-                labelStyle: TextStyle(
-                  color: selected ? AppTheme.primaryColor : Colors.black87,
-                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              padding: const EdgeInsets.only(right: 6),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  controller.setCategory(category);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected ? AppTheme.primaryDark : AppTheme.backgroundColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: selected ? AppTheme.primaryDark : AppTheme.cardBorderColor,
+                    ),
+                  ),
+                  child: Text(
+                    category,
+                    style: TextStyle(
+                      color: selected ? Colors.white : AppTheme.textSecondary,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
-                checkmarkColor: AppTheme.primaryColor,
               ),
             );
           },
@@ -270,13 +300,22 @@ class _SortButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ProductListController>(
       builder: (_, controller, _) => PopupMenuButton<String>(
-        icon: const Icon(Icons.sort_rounded),
+        icon: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.cardBorderColor),
+          ),
+          child: const Icon(Icons.sort_rounded, size: 18, color: AppTheme.textPrimary),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         onSelected: controller.sortProducts,
         itemBuilder: (_) => const [
-          PopupMenuItem(value: 'name_asc', child: Text('Nama (A-Z)')),
-          PopupMenuItem(value: 'name_desc', child: Text('Nama (Z-A)')),
-          PopupMenuItem(value: 'price_asc', child: Text('Termurah')),
-          PopupMenuItem(value: 'price_desc', child: Text('Termahal')),
+          PopupMenuItem(value: 'name_asc', child: Text('Nama (A-Z)', style: TextStyle(fontSize: 13))),
+          PopupMenuItem(value: 'name_desc', child: Text('Nama (Z-A)', style: TextStyle(fontSize: 13))),
+          PopupMenuItem(value: 'price_asc', child: Text('Harga Termurah', style: TextStyle(fontSize: 13))),
+          PopupMenuItem(value: 'price_desc', child: Text('Harga Termahal', style: TextStyle(fontSize: 13))),
         ],
       ),
     );
@@ -289,16 +328,24 @@ class _AddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FloatingActionButton.extended(
-      backgroundColor: AppTheme.primaryColor,
-      icon: const Icon(Icons.add_rounded, color: Colors.white),
-      label: const Text("Barang Baru", style: TextStyle(color: Colors.white)),
-      onPressed: () {
-        Navigator.push(
+      backgroundColor: AppTheme.primaryDark,
+      foregroundColor: Colors.white,
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      icon: const Icon(Icons.add_rounded, size: 20),
+      label: const Text(
+        "Tambah Barang",
+        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      ),
+      onPressed: () async {
+        HapticFeedback.lightImpact();
+        await Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AddProductPage()),
-        ).then((_) {
+        );
+        if (context.mounted) {
           context.read<ProductListController>().fetchProducts();
-        });
+        }
       },
     );
   }
@@ -317,126 +364,116 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isStockLow = product.stock <= 5;
+    final bool isStockOut = product.stock <= 0;
+    final bool isStockLow = !isStockOut && product.stock <= 5;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+        border: Border.all(color: AppTheme.cardBorderColor, width: 1),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-              child: Text(
-                product.name.isNotEmpty ? product.name[0].toUpperCase() : '?',
-                style: const TextStyle(
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              product.name.isNotEmpty ? product.name[0].toUpperCase() : '?',
+              style: const TextStyle(
+                color: AppTheme.primaryColor,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
               ),
             ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    CurrencyFormat.convertToIdr(product.price, 0),
-                    style: const TextStyle(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.inventory_2_outlined,
-                        size: 14,
-                        color: isStockLow ? Colors.red : Colors.grey[600],
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Text(
+                      CurrencyFormat.convertToIdr(product.price, 0),
+                      style: const TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "Stok: ${product.stock}",
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: isStockOut
+                            ? AppTheme.errorColor.withValues(alpha: 0.1)
+                            : (isStockLow
+                                ? AppTheme.warningColor.withValues(alpha: 0.1)
+                                : const Color(0xFFF1F5F9)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        isStockOut
+                            ? "Habis"
+                            : (isStockLow ? "Sisa ${product.stock}" : "Stok: ${product.stock}"),
                         style: TextStyle(
-                          fontSize: 13,
-                          color: isStockLow ? Colors.red : Colors.grey[600],
-                          fontWeight: isStockLow
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: isStockOut
+                              ? AppTheme.errorColor
+                              : (isStockLow ? AppTheme.warningColor : AppTheme.textSecondary),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            _CardActions(onEdit: onEdit, onDelete: onDelete),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CardActions extends StatelessWidget {
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  const _CardActions({required this.onEdit, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _ActionButton(icon: Icons.edit, color: Colors.blue, onTap: onEdit),
-        const SizedBox(height: 8),
-        _ActionButton(icon: Icons.delete, color: Colors.red, onTap: onDelete),
-      ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: color, size: 20),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.textSecondary),
+                tooltip: "Edit",
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  onEdit();
+                },
+              ),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.errorColor),
+                tooltip: "Hapus",
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  onDelete();
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -451,12 +488,12 @@ class _EmptyState extends StatelessWidget {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off_rounded, size: 60, color: Colors.grey[300]),
-          const SizedBox(height: 10),
+        children: const [
+          Icon(Icons.inventory_2_outlined, size: 48, color: AppTheme.textMuted),
+          SizedBox(height: 12),
           Text(
             "Barang tidak ditemukan",
-            style: TextStyle(color: Colors.grey[500]),
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -473,25 +510,35 @@ class _DeleteDialog {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Hapus Barang?"),
-        content: Text("Yakin hapus '${product.name}'?"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "Hapus Produk?",
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        ),
+        content: Text(
+          "Yakin ingin menghapus '${product.name}' dari katalog barang?",
+          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
+            child: const Text("Batal", style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
             onPressed: () async {
               final success = await controller.deleteProduct(product.id);
               if (context.mounted) Navigator.pop(context);
               if (success && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("${product.name} terhapus")),
+                  SnackBar(content: Text("${product.name} berhasil dihapus")),
                 );
               }
             },
-            child: const Text("HAPUS", style: TextStyle(color: Colors.white)),
+            child: const Text("Hapus", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -509,26 +556,32 @@ class _EditDialog {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Edit Barang"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "Edit Produk",
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        ),
         content: _EditForm(controller: controller),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text("Batal"),
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal", style: TextStyle(color: AppTheme.textSecondary)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryDark,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            ),
             onPressed: () async {
               Navigator.pop(context);
               final success = await controller.saveEdit(product.id);
               if (success && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Berhasil diupdate")),
+                  const SnackBar(content: Text("Data produk berhasil diperbarui")),
                 );
               }
             },
-            child: const Text("Simpan"),
+            child: const Text("Simpan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -548,25 +601,27 @@ class _EditForm extends StatelessWidget {
         children: [
           TextField(
             controller: controller.nameEditCtrl,
-            decoration: const InputDecoration(labelText: "Nama"),
+            decoration: const InputDecoration(labelText: "Nama Barang", isDense: true),
           ),
+          const SizedBox(height: 10),
           TextField(
             controller: controller.priceEditCtrl,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: "Harga"),
+            decoration: const InputDecoration(labelText: "Harga Jual (Rp)", isDense: true),
           ),
+          const SizedBox(height: 10),
           TextField(
             controller: controller.stockEditCtrl,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: "Stok"),
+            decoration: const InputDecoration(labelText: "Jumlah Stok", isDense: true),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: controller.selectedEditCategory,
-            decoration: const InputDecoration(labelText: "Kategori"),
+            initialValue: controller.selectedEditCategory,
+            decoration: const InputDecoration(labelText: "Kategori", isDense: true),
             items: controller.filterCategories
-                .where((c) => c != 'Semua') // hanya kategori asli
-                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .where((c) => c != 'Semua')
+                .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
                 .toList(),
             onChanged: (v) {
               if (v != null) controller.selectedEditCategory = v;
