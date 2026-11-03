@@ -34,6 +34,15 @@ class ProductListController extends ChangeNotifier {
   // --- Getters ---
   List<String> get filterCategories => ['Semua', ..._allCategories];
   String get currentSort => _currentSort;
+  int get totalProductsCount => _allProducts.length;
+  int get lowStockCount => _allProducts.where((p) => p.stock <= 5).length;
+  double get totalStockValuation => _allProducts.fold(0.0, (sum, p) => sum + (p.price * p.stock));
+  int get totalUnitsCount => _allProducts.fold(0, (sum, p) => sum + p.stock);
+
+  int countForCategory(String cat) {
+    if (cat == 'Semua') return _allProducts.length;
+    return _allProducts.where((p) => p.category.toLowerCase() == cat.toLowerCase()).length;
+  }
 
   ProductListController() {
     fetchProducts();

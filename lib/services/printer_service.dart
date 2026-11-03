@@ -1,9 +1,12 @@
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:image/image.dart' as img;
 
 import '../models/cart_item_model.dart';
-import 'local_db_service.dart';
+import '../models/product_model.dart';
+import '../models/receipt_custom_model.dart';
+import 'receipt_custom_service.dart';
 
 class PrinterService {
   // --- CONNECTION METHODS ---
@@ -32,8 +35,10 @@ class PrinterService {
   Future<void> printStruk(
     String invoice,
     List<CartItem> items,
-    int total,
-  ) async {
+    int total, {
+    int? cashPaid,
+    int? change,
+  }) async {
     final isConnected = await PrintBluetoothThermal.connectionStatus;
 
     if (!isConnected) {
@@ -44,6 +49,44 @@ class PrinterService {
       invoice: invoice,
       items: items,
       total: total,
+      cashPaid: cashPaid,
+      change: change,
+    );
+
+    await PrintBluetoothThermal.writeBytes(bytes);
+  }
+
+  /// Cetak struk uji coba kustomisasi 58mm
+  Future<void> printTestSampleStruk(ReceiptCustomModel config) async {
+    final isConnected = await PrintBluetoothThermal.connectionStatus;
+
+    if (!isConnected) {
+      throw Exception('Printer Bluetooth belum terhubung.');
+    }
+
+    final sampleItems = [
+      CartItem(
+        product: Product(id: 1, code: 'PRD-001', name: 'Kopi Susu Gula Aren', price: 18000, stock: 99, category: 'Minuman'),
+        qty: 2,
+      ),
+      CartItem(
+        product: Product(id: 2, code: 'PRD-002', name: 'Croissant Coklat Butter', price: 24000, stock: 50, category: 'Makanan'),
+        qty: 1,
+      ),
+      CartItem(
+        product: Product(id: 3, code: 'PRD-003', name: 'Air Mineral 600ml', price: 5000, stock: 100, category: 'Minuman'),
+        qty: 1,
+      ),
+    ];
+    final sampleTotal = (2 * 18000) + 24000 + 5000;
+
+    final bytes = await _generateCustomTicket(
+      config: config,
+      invoice: 'INV-TEST-${DateFormat('HHmm').format(DateTime.now())}',
+      items: sampleItems,
+      total: sampleTotal,
+      cashPaid: 100000,
+      change: 35000,
     );
 
     await PrintBluetoothThermal.writeBytes(bytes);
@@ -55,138 +98,289 @@ class PrinterService {
     required String invoice,
     required List<CartItem> items,
     required int total,
+    int? cashPaid,
+    int? change,
   }) async {
-    final settings = await LocalDbService.instance.getReceiptSettings();
+    final config = await ReceiptCustomService.instance.getConfig();
+    return _generateCustomTicket(
+      config: config,
+      invoice: invoice,
+      items: items,
+      total: total,
+      cashPaid: cashPaid,
+      change: change,
+    );
+  }
+
+  Future<List<int>> _generateCustomTicket({
+    required ReceiptCustomModel config,
+    required String invoice,
+    required List<CartItem> items,
+    required int total,
+    int? cashPaid,
+    int? change,
+  }) async {
     final profile = await CapabilityProfile.load();
-    
-    // Kertas dipatenkan ke 58mm
     final generator = Generator(PaperSize.mm58, profile);
     final bytes = <int>[];
 
-    // Format Rupiah rapi (Tanpa simbol Rp untuk item, dengan Rp untuk total)
     final numFormat = NumberFormat('#,##0', 'id_ID');
     final rpFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-    // Build Sequence
-    bytes.addAll(_buildHeader(generator, settings));
-    bytes.addAll(_buildInvoiceInfo(generator, invoice));
-    bytes.addAll(_buildItemsList(generator, items, numFormat));
-    bytes.addAll(_buildTotalSection(generator, total, rpFormat));
-    bytes.addAll(_buildFooter(generator, settings));
+    img.Image? logoImg;
+    if (config.showLogo && config.logoPath != null) {
+      logoImg = await ReceiptCustomService.instance.loadAndProcessLogoImage(
+        config.logoPath,
+        config.logoSize.pixelWidth,
+      );
+    }
+
+    PosAlign alignForLogo(ReceiptLogoAlign a) {
+      switch (a) {
+        case ReceiptLogoAlign.left:
+          return PosAlign.left;
+        case ReceiptLogoAlign.right:
+          return PosAlign.right;
+        case ReceiptLogoAlign.center:
+          return PosAlign.center;
+      }
+    }
+
+    void insertLogoIfPosition(ReceiptLogoPosition pos) {
+      if (!config.showLogo) return;
+      if (config.logoPosition != pos) return;
+
+      if (logoImg != null) {
+        bytes.addAll(generator.image(logoImg, align: alignForLogo(config.logoAlignment)));
+        bytes.addAll(generator.feed(1));
+      } else {
+        bytes.addAll(
+          generator.text(
+            '*** POS OFFICIAL ***',
+            styles: PosStyles(
+              align: alignForLogo(config.logoAlignment),
+              bold: true,
+              fontType: PosFontType.fontA,
+            ),
+          ),
+        );
+      }
+    }
+
+    final divider = config.dividerStyle.pattern;
+
+    // 1. Posisi Logo: TOP (Sebelum Header)
+    insertLogoIfPosition(ReceiptLogoPosition.top);
+
+    // 2. HEADER TOKO
+    bytes.addAll(_buildHeader(generator, config));
+
+    // 3. Posisi Logo: AFTER_HEADER
+    insertLogoIfPosition(ReceiptLogoPosition.afterHeader);
+
+    // 4. INFORMASI TRANSAKSI
+    bytes.addAll(_buildInvoiceInfo(generator, invoice, config, divider));
+
+    // 5. Posisi Logo: BEFORE_ITEMS
+    insertLogoIfPosition(ReceiptLogoPosition.beforeItems);
+
+    // 6. DAFTAR BARANG
+    bytes.addAll(_buildItemsList(generator, items, numFormat, config, divider));
+
+    // 7. TOTAL & PEMBAYARAN
+    bytes.addAll(_buildTotalSection(
+      generator,
+      total,
+      rpFormat,
+      config,
+      divider,
+      cashPaid ?? total,
+      change ?? 0,
+    ));
+
+    // 8. Posisi Logo: AFTER_TOTAL
+    insertLogoIfPosition(ReceiptLogoPosition.afterTotal);
+
+    // 9. FOOTER & QR CODE
+    bytes.addAll(_buildFooter(generator, config, invoice));
+
+    // 10. Posisi Logo: BOTTOM (Paling Bawah)
+    insertLogoIfPosition(ReceiptLogoPosition.bottom);
+
+    // Dorong kertas 3 baris lalu potong
+    bytes.addAll(generator.feed(3));
+    bytes.addAll(generator.cut());
 
     return bytes;
   }
 
   // --- COMPONENT BUILDERS ---
 
-  List<int> _buildHeader(Generator generator, Map<String, dynamic> settings) {
+  List<int> _buildHeader(Generator generator, ReceiptCustomModel config) {
     final bytes = <int>[];
-    const String dashLine = '--------------------------------'; // Tepat 32 karakter
 
-    // Nama Toko (Besar dan Tebal)
+    PosTextSize heightSize = PosTextSize.size2;
+    PosTextSize widthSize = PosTextSize.size2;
+    if (config.storeNameSize == 'normal') {
+      heightSize = PosTextSize.size1;
+      widthSize = PosTextSize.size1;
+    } else if (config.storeNameSize == 'extra_large') {
+      heightSize = PosTextSize.size3;
+      widthSize = PosTextSize.size3;
+    }
+
     bytes.addAll(
       generator.text(
-        settings['store_name'],
-        styles: const PosStyles(
+        config.storeName,
+        styles: PosStyles(
           align: PosAlign.center,
           bold: true,
-          height: PosTextSize.size2,
-          width: PosTextSize.size2,
-          fontType: PosFontType.fontA, // Kunci ke Font Normal
+          height: heightSize,
+          width: widthSize,
+          fontType: PosFontType.fontA,
         ),
       ),
     );
-    
-    // Alamat Toko
-    if (settings['store_address'].toString().isNotEmpty) {
+
+    if (config.showHeaderNote && config.headerNote.isNotEmpty) {
       bytes.addAll(
         generator.text(
-          settings['store_address'],
-          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
-        ),
-      );
-    }
-    
-    // Kontak Toko
-    if (settings['store_contact'].toString().isNotEmpty) {
-      bytes.addAll(
-        generator.text(
-          settings['store_contact'],
+          config.headerNote,
           styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
         ),
       );
     }
 
-    bytes.addAll(generator.feed(1)); // Spasi 1 baris
+    if (config.showAddress && config.storeAddress.isNotEmpty) {
+      bytes.addAll(
+        generator.text(
+          config.storeAddress,
+          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
+        ),
+      );
+    }
+
+    if (config.showContact && config.storeContact.isNotEmpty) {
+      bytes.addAll(
+        generator.text(
+          config.storeContact,
+          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
+        ),
+      );
+    }
+
+    return bytes;
+  }
+
+  List<int> _buildInvoiceInfo(
+    Generator generator,
+    String invoice,
+    ReceiptCustomModel config,
+    String divider,
+  ) {
+    final bytes = <int>[];
+
     bytes.addAll(
       generator.text(
-        dashLine,
+        divider,
+        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
+      ),
+    );
+
+    if (config.showInvoiceNumber) {
+      bytes.addAll(
+        generator.text(
+          'No  : $invoice',
+          styles: const PosStyles(fontType: PosFontType.fontA),
+        ),
+      );
+    }
+
+    if (config.showDate || config.showTime) {
+      String datePattern = 'dd-MM-yyyy';
+      if (config.showDate && config.showTime) {
+        datePattern = 'dd-MM-yyyy HH:mm';
+      } else if (config.showTime) {
+        datePattern = 'HH:mm:ss';
+      }
+      bytes.addAll(
+        generator.text(
+          'Tgl : ${DateFormat(datePattern).format(DateTime.now())}',
+          styles: const PosStyles(fontType: PosFontType.fontA),
+        ),
+      );
+    }
+
+    if (config.showCashierName && config.cashierName.isNotEmpty) {
+      bytes.addAll(
+        generator.text(
+          'Ksr : ${config.cashierName}',
+          styles: const PosStyles(fontType: PosFontType.fontA),
+        ),
+      );
+    }
+
+    bytes.addAll(
+      generator.text(
+        divider,
         styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
       ),
     );
     return bytes;
   }
 
-  List<int> _buildInvoiceInfo(Generator generator, String invoice) {
+  List<int> _buildItemsList(
+    Generator generator,
+    List<CartItem> items,
+    NumberFormat numFormat,
+    ReceiptCustomModel config,
+    String divider,
+  ) {
     final bytes = <int>[];
-    const String dashLine = '--------------------------------';
-    
-    // Di 58mm, No Struk dan Tanggal ditumpuk atas-bawah agar tidak tabrakan
-    bytes.addAll(
-      generator.text(
-        'No  : $invoice',
-        styles: const PosStyles(fontType: PosFontType.fontA),
-      ),
-    );
-    bytes.addAll(
-      generator.text(
-        'Tgl : ${DateFormat('dd-MM-yyyy HH:mm').format(DateTime.now())}',
-        styles: const PosStyles(fontType: PosFontType.fontA),
-      ),
-    );
 
-    bytes.addAll(
-      generator.text(
-        dashLine,
-        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
-      ),
-    );
-    return bytes;
-  }
-
-  List<int> _buildItemsList(Generator generator, List<CartItem> items, NumberFormat numFormat) {
-    final bytes = <int>[];
-    const String dashLine = '--------------------------------';
-    
     for (final item in items) {
-      // Baris 1: Nama Produk (Bold agar menonjol)
-      bytes.addAll(
-        generator.text(
-          item.product.name.toUpperCase(),
-          styles: const PosStyles(bold: true, fontType: PosFontType.fontA),
-        ),
-      );
-      
-      // Baris 2: Qty x Harga (Kiri) & Subtotal (Kanan)
-      bytes.addAll(
-        generator.row([
-          PosColumn(
-            text: '${item.qty} x ${numFormat.format(item.product.price)}',
-            width: 7, // Lebar kiri 7/12
-            styles: const PosStyles(fontType: PosFontType.fontA),
+      if (config.compactItemRows) {
+        bytes.addAll(
+          generator.row([
+            PosColumn(
+              text: '${item.qty}x ${item.product.name.toUpperCase()}',
+              width: 8,
+              styles: const PosStyles(bold: true, fontType: PosFontType.fontA),
+            ),
+            PosColumn(
+              text: numFormat.format(item.qty * item.product.price),
+              width: 4,
+              styles: const PosStyles(align: PosAlign.right, fontType: PosFontType.fontA),
+            ),
+          ]),
+        );
+      } else {
+        bytes.addAll(
+          generator.text(
+            item.product.name.toUpperCase(),
+            styles: const PosStyles(bold: true, fontType: PosFontType.fontA),
           ),
-          PosColumn(
-            text: numFormat.format(item.qty * item.product.price),
-            width: 5, // Lebar kanan 5/12
-            styles: const PosStyles(align: PosAlign.right, fontType: PosFontType.fontA),
-          ),
-        ]),
-      );
+        );
+        bytes.addAll(
+          generator.row([
+            PosColumn(
+              text: '${item.qty} x ${numFormat.format(item.product.price)}',
+              width: 7,
+              styles: const PosStyles(fontType: PosFontType.fontA),
+            ),
+            PosColumn(
+              text: numFormat.format(item.qty * item.product.price),
+              width: 5,
+              styles: const PosStyles(align: PosAlign.right, fontType: PosFontType.fontA),
+            ),
+          ]),
+        );
+      }
     }
-    
+
     bytes.addAll(
       generator.text(
-        dashLine,
+        divider,
         styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
       ),
     );
@@ -196,12 +390,31 @@ class PrinterService {
   List<int> _buildTotalSection(
     Generator generator,
     int total,
-    NumberFormat rpFormat
+    NumberFormat rpFormat,
+    ReceiptCustomModel config,
+    String divider,
+    int cashPaid,
+    int change,
   ) {
     final bytes = <int>[];
-    const String equalLine = '================================';
 
-    // Baris Total Akhir
+    if (config.showSubtotalRow && config.showTax) {
+      final subtotal = (total / (1 + (config.taxPercent / 100))).round();
+      bytes.addAll(
+        generator.row([
+          PosColumn(text: 'Subtotal', width: 6, styles: const PosStyles(fontType: PosFontType.fontA)),
+          PosColumn(text: rpFormat.format(subtotal), width: 6, styles: const PosStyles(align: PosAlign.right, fontType: PosFontType.fontA)),
+        ]),
+      );
+      final taxAmt = total - subtotal;
+      bytes.addAll(
+        generator.row([
+          PosColumn(text: 'PPN (${config.taxPercent.toStringAsFixed(0)}%)', width: 6, styles: const PosStyles(fontType: PosFontType.fontA)),
+          PosColumn(text: rpFormat.format(taxAmt), width: 6, styles: const PosStyles(align: PosAlign.right, fontType: PosFontType.fontA)),
+        ]),
+      );
+    }
+
     bytes.addAll(
       generator.row([
         PosColumn(
@@ -217,47 +430,77 @@ class PrinterService {
       ]),
     );
 
+    if (config.showCashAndChange && cashPaid > 0) {
+      bytes.addAll(
+        generator.row([
+          PosColumn(text: 'Tunai', width: 6, styles: const PosStyles(fontType: PosFontType.fontA)),
+          PosColumn(text: rpFormat.format(cashPaid), width: 6, styles: const PosStyles(align: PosAlign.right, fontType: PosFontType.fontA)),
+        ]),
+      );
+      if (change >= 0) {
+        bytes.addAll(
+          generator.row([
+            PosColumn(text: 'Kembali', width: 6, styles: const PosStyles(fontType: PosFontType.fontA)),
+            PosColumn(text: rpFormat.format(change), width: 6, styles: const PosStyles(align: PosAlign.right, fontType: PosFontType.fontA)),
+          ]),
+        );
+      }
+    }
+
     bytes.addAll(
       generator.text(
-        equalLine,
+        divider,
         styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
       ),
     );
     return bytes;
   }
 
-  List<int> _buildFooter(Generator generator, Map<String, dynamic> settings) {
+  List<int> _buildFooter(
+    Generator generator,
+    ReceiptCustomModel config,
+    String invoice,
+  ) {
     final bytes = <int>[];
 
-    // Pesan Terima Kasih
-    if (settings['footer_message'].toString().isNotEmpty) {
+    if (config.showFooterMessage && config.footerMessage.isNotEmpty) {
       bytes.addAll(
         generator.text(
-          settings['footer_message'],
+          config.footerMessage,
           styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
         ),
       );
     }
 
-    bytes.addAll(generator.feed(1));
+    if (config.showSocialMedia && config.socialMediaText.isNotEmpty) {
+      bytes.addAll(
+        generator.text(
+          config.socialMediaText,
+          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
+        ),
+      );
+    }
 
-    // Ketentuan Garansi (Hanya dimunculkan jika ini konter HP)
-    bytes.addAll(
-      generator.text(
-        'UNTUK KLAIM GARANSI',
-        styles: const PosStyles(align: PosAlign.center, bold: true, fontType: PosFontType.fontA),
-      ),
-    );
-    bytes.addAll(
-      generator.text(
-        'Harap bawa struk ini',
-        styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
-      ),
-    );
+    if (config.showWarrantyNotice && config.warrantyNotice.isNotEmpty) {
+      bytes.addAll(generator.feed(1));
+      bytes.addAll(
+        generator.text(
+          'KETENTUAN:',
+          styles: const PosStyles(align: PosAlign.center, bold: true, fontType: PosFontType.fontA),
+        ),
+      );
+      bytes.addAll(
+        generator.text(
+          config.warrantyNotice,
+          styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontA),
+        ),
+      );
+    }
 
-    // Kertas didorong keluar 3 baris agar mudah disobek
-    bytes.addAll(generator.feed(3));
-    bytes.addAll(generator.cut());
+    if (config.showInvoiceQr) {
+      bytes.addAll(generator.feed(1));
+      bytes.addAll(generator.qrcode(invoice, align: PosAlign.center));
+    }
 
     return bytes;
   }

@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../models/sales_analytics_model.dart';
 import '../../../utils/currency_format.dart';
+import '../../../config/app_theme.dart';
 
 class SalesChartWidget extends StatelessWidget {
   final SalesAnalyticsSummary summary;
@@ -30,14 +32,14 @@ class SalesChartWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final points = summary.dataPoints;
     if (points.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 220,
         child: Center(
           child: Text(
-            'Tidak ada data untuk ditampilkan pada grafik.',
-            style: TextStyle(
-              color: Color(0xFF94A3B8),
-              fontSize: 13,
+            'Tidak ada data transaksi untuk ditampilkan pada grafik.',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textMuted,
+              fontSize: 12.5,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -67,14 +69,14 @@ class SalesChartWidget extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         child: SizedBox(
           width: neededWidth,
-          height: 290,
+          height: 280,
           child: chart,
         ),
       );
     }
 
     return SizedBox(
-      height: 290,
+      height: 280,
       child: chart,
     );
   }
@@ -92,35 +94,33 @@ class SalesChartWidget extends StatelessWidget {
         barTouchData: BarTouchData(
           enabled: true,
           touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (_) => const Color(0xFF0F172A),
-            tooltipBorderRadius: BorderRadius.circular(10),
-            tooltipPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            getTooltipColor: (_) => AppTheme.primaryDark,
+            tooltipBorderRadius: BorderRadius.circular(6),
+            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             tooltipMargin: 8,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
               final point = points[group.x.toInt()];
               return BarTooltipItem(
                 '${point.fullLabel}\n',
-                const TextStyle(
+                GoogleFonts.plusJakartaSans(
                   color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                  letterSpacing: -0.2,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
                 ),
                 children: [
                   TextSpan(
                     text: '${CurrencyFormat.convertToIdr(point.totalAmount, 0)}\n',
-                    style: const TextStyle(
-                      color: Color(0xFF38BDF8),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      letterSpacing: -0.3,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
                     ),
                   ),
                   TextSpan(
                     text: '${point.transactionCount} Transaksi',
-                    style: const TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 11,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: AppTheme.slateGraphite,
+                      fontSize: 10,
                       fontWeight: FontWeight.normal,
                     ),
                   ),
@@ -136,17 +136,17 @@ class SalesChartWidget extends StatelessWidget {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 46,
+              reservedSize: 48,
               getTitlesWidget: (val, meta) {
                 if (val == 0) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(
                     _formatCompact(val),
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      color: Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w500,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w600,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -157,7 +157,7 @@ class SalesChartWidget extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 28,
+              reservedSize: 26,
               getTitlesWidget: (val, meta) {
                 final idx = val.toInt();
                 if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
@@ -165,10 +165,10 @@ class SalesChartWidget extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     points[idx].label,
-                    style: TextStyle(
-                      fontSize: isDaily ? 10 : 11.5,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: isDaily ? 9.5 : 11,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 );
@@ -181,8 +181,8 @@ class SalesChartWidget extends StatelessWidget {
           drawVerticalLine: false,
           horizontalInterval: maxY > 0 ? (maxY / 4) : 1,
           getDrawingHorizontalLine: (val) => FlLine(
-            color: const Color(0xFFF1F5F9),
-            strokeWidth: 1.2,
+            color: AppTheme.cardBorderColor,
+            strokeWidth: 1,
             dashArray: [4, 4],
           ),
         ),
@@ -198,19 +198,15 @@ class SalesChartWidget extends StatelessWidget {
             barRods: [
               BarChartRodData(
                 toY: p.totalAmount.toDouble(),
-                gradient: LinearGradient(
-                  colors: isHighest
-                      ? [const Color(0xFFD97706), const Color(0xFFF59E0B)]
-                      : [const Color(0xFF1D4ED8), const Color(0xFF3B82F6)],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
+                color: isHighest
+                    ? AppTheme.primaryDark
+                    : AppTheme.leadAsphalt,
                 width: isDaily ? 14 : 20,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
                 backDrawRodData: BackgroundBarChartRodData(
                   show: true,
                   toY: maxY,
-                  color: const Color(0xFFF8FAFC),
+                  color: AppTheme.surfaceRecessed,
                 ),
               ),
             ],
@@ -237,9 +233,9 @@ class SalesChartWidget extends StatelessWidget {
         lineTouchData: LineTouchData(
           enabled: true,
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => const Color(0xFF0F172A),
-            tooltipBorderRadius: BorderRadius.circular(10),
-            tooltipPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            getTooltipColor: (_) => AppTheme.primaryDark,
+            tooltipBorderRadius: BorderRadius.circular(6),
+            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             tooltipMargin: 8,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
@@ -247,27 +243,25 @@ class SalesChartWidget extends StatelessWidget {
                 final p = points[idx];
                 return LineTooltipItem(
                   '${p.fullLabel}\n',
-                  const TextStyle(
+                  GoogleFonts.plusJakartaSans(
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    letterSpacing: -0.2,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
                   ),
                   children: [
                     TextSpan(
                       text: '${CurrencyFormat.convertToIdr(p.totalAmount, 0)}\n',
-                      style: const TextStyle(
-                        color: Color(0xFF2DD4BF),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        letterSpacing: -0.3,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
                       ),
                     ),
                     TextSpan(
                       text: '${p.transactionCount} Transaksi',
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 11,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: AppTheme.slateGraphite,
+                        fontSize: 10,
                         fontWeight: FontWeight.normal,
                       ),
                     ),
@@ -284,17 +278,17 @@ class SalesChartWidget extends StatelessWidget {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 46,
+              reservedSize: 48,
               getTitlesWidget: (val, meta) {
                 if (val == 0) return const SizedBox.shrink();
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(
                     _formatCompact(val),
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      color: Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w500,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w600,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -305,7 +299,7 @@ class SalesChartWidget extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 28,
+              reservedSize: 26,
               getTitlesWidget: (val, meta) {
                 final idx = val.toInt();
                 if (idx < 0 || idx >= points.length) return const SizedBox.shrink();
@@ -313,10 +307,10 @@ class SalesChartWidget extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     points[idx].label,
-                    style: TextStyle(
-                      fontSize: isDaily ? 10 : 11.5,
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: isDaily ? 9.5 : 11,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 );
@@ -329,8 +323,8 @@ class SalesChartWidget extends StatelessWidget {
           drawVerticalLine: false,
           horizontalInterval: maxY > 0 ? (maxY / 4) : 1,
           getDrawingHorizontalLine: (val) => FlLine(
-            color: const Color(0xFFF1F5F9),
-            strokeWidth: 1.2,
+            color: AppTheme.cardBorderColor,
+            strokeWidth: 1,
             dashArray: [4, 4],
           ),
         ),
@@ -340,8 +334,8 @@ class SalesChartWidget extends StatelessWidget {
             spots: spots,
             isCurved: true,
             preventCurveOverShooting: true,
-            barWidth: 3.0,
-            color: const Color(0xFF0D9488),
+            barWidth: 2,
+            color: AppTheme.primaryDark,
             dotData: FlDotData(
               show: true,
               getDotPainter: (spot, percent, barData, index) {
@@ -351,23 +345,16 @@ class SalesChartWidget extends StatelessWidget {
                     p.totalAmount > 0;
 
                 return FlDotCirclePainter(
-                  radius: isHighest ? 5.5 : 3.5,
-                  color: isHighest ? const Color(0xFFF59E0B) : Colors.white,
-                  strokeWidth: 2.2,
-                  strokeColor: isHighest ? Colors.white : const Color(0xFF0D9488),
+                  radius: isHighest ? 4.5 : 3.0,
+                  color: isHighest ? AppTheme.stampRed : Colors.white,
+                  strokeWidth: 1.5,
+                  strokeColor: isHighest ? AppTheme.stampRed : AppTheme.primaryDark,
                 );
               },
             ),
             belowBarData: BarAreaData(
               show: true,
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF0D9488).withValues(alpha: 0.20),
-                  const Color(0xFF0D9488).withValues(alpha: 0.0),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
+              color: AppTheme.primaryDark.withValues(alpha: 0.05),
             ),
           ),
         ],

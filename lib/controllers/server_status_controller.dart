@@ -9,6 +9,7 @@ class ServerStatusController extends ChangeNotifier {
 
   // --- State Variables ---
   ServerStatus status = ServerStatus.checking;
+  bool get isOnline => status == ServerStatus.online;
   Timer? _timer;
 
   // --- Constructor ---

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/scanner_view.dart';
 import '../../controllers/cashier_controller.dart';
+import '../../controllers/tablet_mode_controller.dart';
 import '../../providers/cart_provider.dart';
 import '../../models/cart_item_model.dart';
 import '../../utils/currency_format.dart';
@@ -19,6 +21,8 @@ class CashierPage extends StatefulWidget {
 
 class _CashierPageState extends State<CashierPage> {
   late final CashierController _cashierCtrl;
+  String _tabletSearchQuery = '';
+  String _tabletSelectedCategory = 'Semua';
 
   @override
   void initState() {
@@ -72,30 +76,17 @@ class _CashierPageState extends State<CashierPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = context.watch<TabletModeController>().isTabletLayout(context);
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: _buildAppBar(),
+      appBar: _buildAppBar(isTablet),
       body: Stack(
         children: [
-          Column(
-            children: [
-              const _PrinterStatusBar(),
-              Expanded(
-                child: Consumer<CartProvider>(
-                  builder: (_, cart, _) {
-                    if (cart.items.isEmpty) return const _EmptyCartView();
-                    return ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 180),
-                      itemCount: cart.items.length,
-                      itemBuilder: (_, i) => _CartItemTile(item: cart.items[i]),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-          const _CheckoutDock(),
+          if (isTablet)
+            _buildTabletLayout()
+          else
+            _buildPortraitLayout(),
           if (context.select<CashierController, bool>((c) => c.isScanning))
             const _ScanningOverlay(),
         ],
@@ -103,64 +94,90 @@ class _CashierPageState extends State<CashierPage> {
     );
   }
 
-  AppBar _buildAppBar() {
+  AppBar _buildAppBar(bool isTablet) {
     return AppBar(
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Kasir Toko",
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 17,
-              color: AppTheme.textPrimary,
-              letterSpacing: -0.2,
-            ),
+          Row(
+            children: [
+              Text(
+                "Kasir Toko",
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              if (isTablet) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceRecessed,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.cardBorderColor),
+                  ),
+                  child: Text(
+                    "TABLET STATION",
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textSecondary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           Consumer<CartProvider>(
             builder: (_, cart, _) => Text(
               cart.items.isEmpty
-                  ? "Keranjang kosong"
-                  : "${cart.totalQty} barang di keranjang",
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w500,
+                  ? "KERANJANG KOSONG // SIAP TRANSAKSI"
+                  : "${cart.totalQty} ITEM DALAM KERANJANG",
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                color: cart.items.isEmpty ? AppTheme.textMuted : AppTheme.successColor,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
               ),
             ),
           ),
         ],
       ),
       actions: [
-        IconButton(
-          icon: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.cardBorderColor),
+        if (!isTablet)
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceRecessed,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.cardBorderColor),
+              ),
+              child: const Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: AppTheme.textPrimary,
+              ),
             ),
-            child: const Icon(
-              Icons.search_rounded,
-              size: 20,
-              color: AppTheme.textPrimary,
-            ),
+            tooltip: "Cari Produk",
+            onPressed: () => _showSearchSheet(context),
           ),
-          tooltip: "Cari Produk",
-          onPressed: () => _showSearchSheet(context),
-        ),
         Consumer2<CashierController, CartProvider>(
           builder: (_, cashier, cart, _) => IconButton(
             icon: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.primaryColor,
+                borderRadius: BorderRadius.circular(6),
               ),
               child: const Icon(
                 Icons.qr_code_scanner_rounded,
-                size: 20,
-                color: AppTheme.primaryColor,
+                size: 18,
+                color: Colors.white,
               ),
             ),
             tooltip: "Scan Barcode",
@@ -169,6 +186,410 @@ class _CashierPageState extends State<CashierPage> {
         ),
         const SizedBox(width: 8),
       ],
+    );
+  }
+
+  // --- PORTRAIT LAYOUT ---
+  Widget _buildPortraitLayout() {
+    return Column(
+      children: [
+        const _PrinterStatusBar(),
+        Expanded(
+          child: Consumer<CartProvider>(
+            builder: (_, cart, _) {
+              if (cart.items.isEmpty) return const _EmptyCartView();
+              return ListView.builder(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 180),
+                itemCount: cart.items.length,
+                itemBuilder: (_, i) => _CartItemTile(item: cart.items[i]),
+              );
+            },
+          ),
+        ),
+        const _CheckoutDock(),
+      ],
+    );
+  }
+
+  // --- TABLET HORIZONTAL 2-PANE LAYOUT ---
+  Widget _buildTabletLayout() {
+    return Column(
+      children: [
+        const _PrinterStatusBar(),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // LEFT PANE: Product Fast-Tap Catalog (60% width)
+              Expanded(
+                flex: 6,
+                child: _buildTabletCatalogPane(),
+              ),
+
+              // VERTICAL DIVIDER
+              Container(width: 1, color: AppTheme.cardBorderColor),
+
+              // RIGHT PANE: Live Bill & Checkout Console (40% width)
+              Expanded(
+                flex: 4,
+                child: _buildTabletBillPane(),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabletCatalogPane() {
+    return Consumer2<CashierController, CartProvider>(
+      builder: (_, cashier, cart, _) {
+        final allProducts = cashier.allProducts;
+
+        // Categories
+        final categories = <String>{'Semua'};
+        for (var p in allProducts) {
+          if (p.category.isNotEmpty) categories.add(p.category);
+        }
+
+        // Filter products
+        final filtered = allProducts.where((p) {
+          final matchesSearch = _tabletSearchQuery.isEmpty ||
+              p.name.toLowerCase().contains(_tabletSearchQuery.toLowerCase()) ||
+              p.code.toLowerCase().contains(_tabletSearchQuery.toLowerCase());
+          final matchesCat = _tabletSelectedCategory == 'Semua' ||
+              p.category.toLowerCase() == _tabletSelectedCategory.toLowerCase();
+          return matchesSearch && matchesCat;
+        }).toList();
+
+        return Container(
+          color: AppTheme.backgroundColor,
+          child: Column(
+            children: [
+              // Search & Filter Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.cardBorderColor),
+                      ),
+                      child: TextField(
+                        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: "Cari produk dengan nama atau scan kode...",
+                          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                          prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondary),
+                          suffixIcon: _tabletSearchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 16),
+                                  onPressed: () => setState(() => _tabletSearchQuery = ''),
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setState(() => _tabletSearchQuery = v.trim()),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Horizontal Category Chips
+                    SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        children: categories.map((cat) {
+                          final isSelected = _tabletSelectedCategory == cat;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(20),
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setState(() => _tabletSelectedCategory = cat);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: isSelected ? AppTheme.primaryDark : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isSelected ? AppTheme.primaryDark : const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Text(
+                                  cat,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                                    color: isSelected ? Colors.white : AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Product Touch Grid
+              Expanded(
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.inventory_2_outlined, size: 40, color: AppTheme.textMuted),
+                            SizedBox(height: 8),
+                            Text(
+                              "Tidak ada produk yang cocok",
+                              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      )
+                    : GridView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 1.25,
+                        ),
+                        itemCount: filtered.length,
+                        itemBuilder: (_, index) {
+                          final product = filtered[index];
+                          final cartItem = cart.items.cast<CartItem?>().firstWhere(
+                                (item) => item?.product.id == product.id,
+                                orElse: () => null,
+                              );
+                          final qtyInCart = cartItem?.qty ?? 0;
+                          final hasStock = product.stock > qtyInCart;
+
+                          return Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: hasStock
+                                  ? () {
+                                      HapticFeedback.lightImpact();
+                                      cart.addToCart(product);
+                                    }
+                                  : null,
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: qtyInCart > 0
+                                        ? AppTheme.primaryColor
+                                        : AppTheme.cardBorderColor,
+                                    width: qtyInCart > 0 ? 1.5 : 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.02),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                product.name,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 12,
+                                                  color: AppTheme.textPrimary,
+                                                ),
+                                              ),
+                                            ),
+                                            if (qtyInCart > 0)
+                                              Container(
+                                                margin: const EdgeInsets.only(left: 4),
+                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.primaryColor,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  "$qtyInCart",
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          product.category,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: AppTheme.textMuted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          CurrencyFormat.convertToIdr(product.price, 0),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 12,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          product.stock <= 0
+                                              ? "Habis"
+                                              : "Stok: ${product.stock - qtyInCart}",
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: product.stock <= 0
+                                                ? AppTheme.errorColor
+                                                : AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTabletBillPane() {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Order Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.shopping_bag_outlined, size: 18, color: AppTheme.textPrimary),
+                    SizedBox(width: 8),
+                    Text(
+                      "Pesanan Berjalan",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                Consumer<CartProvider>(
+                  builder: (_, cart, _) => cart.items.isNotEmpty
+                      ? InkWell(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            cart.clearCart();
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Text(
+                              "Kosongkan",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.errorColor,
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
+
+          // Scrollable Cart List
+          Expanded(
+            child: Consumer<CartProvider>(
+              builder: (_, cart, _) {
+                if (cart.items.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.touch_app_outlined, size: 36, color: AppTheme.textMuted),
+                        SizedBox(height: 8),
+                        Text(
+                          "Pilih produk di sebelah kiri\nuntuk menambahkan ke pesanan",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  itemCount: cart.items.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) => _CartItemTile(item: cart.items[i]),
+                );
+              },
+            ),
+          ),
+
+          // Integrated Checkout Panel at bottom of right pane
+          const _CheckoutConsole(),
+        ],
+      ),
     );
   }
 
@@ -186,7 +607,295 @@ class _CashierPageState extends State<CashierPage> {
   }
 }
 
-// ==================== PRINTER STATUS BAR ====================
+// ==================== CHECKOUT CONSOLE (REUSABLE IN TABLET & DOCK) ====================
+class _CheckoutConsole extends StatefulWidget {
+  const _CheckoutConsole();
+
+  @override
+  State<_CheckoutConsole> createState() => _CheckoutConsoleState();
+}
+
+class _CheckoutConsoleState extends State<_CheckoutConsole> {
+  final TextEditingController _cashCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _cashCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<CartProvider, CashierController>(
+      builder: (_, cart, cashier, _) {
+        final total = cart.totalAmount;
+        final change = cashier.calculateChange(total);
+        final canPay = cart.items.isNotEmpty && cashier.isPaymentSufficient(total);
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.surfaceColor,
+            border: Border(
+              top: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Row 1: Total & Struk
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "TOTAL TAGIHAN",
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        CurrencyFormat.convertToIdr(total, 0),
+                        style: GoogleFonts.jetBrainsMono(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 20,
+                          letterSpacing: -0.5,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                  InkWell(
+                    onTap: () => cashier.toggleStrukOption(!cashier.withStruk),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: cashier.withStruk
+                            ? AppTheme.primaryColor
+                            : AppTheme.surfaceRecessed,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: cashier.withStruk
+                              ? AppTheme.primaryColor
+                              : AppTheme.cardBorderColor,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.receipt_rounded,
+                            size: 13,
+                            color: cashier.withStruk
+                                ? Colors.white
+                                : AppTheme.textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "STRUK",
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: cashier.withStruk
+                                  ? Colors.white
+                                  : AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Row 2: Cash Input & Quick Cash Buttons
+              Row(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Container(
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceRecessed,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.cardBorderColor),
+                      ),
+                      child: TextField(
+                        controller: _cashCtrl,
+                        keyboardType: TextInputType.number,
+                        onChanged: cashier.updateCashReceived,
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Nominal tunai',
+                          hintStyle: GoogleFonts.jetBrainsMono(color: AppTheme.textMuted, fontSize: 11),
+                          prefixIcon: const Icon(
+                            Icons.payments_outlined,
+                            size: 16,
+                            color: AppTheme.textSecondary,
+                          ),
+                          suffixIcon: _cashCtrl.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 14),
+                                  onPressed: () {
+                                    _cashCtrl.clear();
+                                    cashier.clearPayment();
+                                  },
+                                )
+                              : null,
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 9,
+                            horizontal: 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    flex: 6,
+                    child: SizedBox(
+                      height: 38,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          _QuickCashPill(label: "PAS", amount: total, controller: _cashCtrl),
+                          _QuickCashPill(label: "50k", amount: 50000, controller: _cashCtrl),
+                          _QuickCashPill(label: "100k", amount: 100000, controller: _cashCtrl),
+                          _QuickCashPill(label: "200k", amount: 200000, controller: _cashCtrl),
+                          _QuickCashPill(label: "500k", amount: 500000, controller: _cashCtrl),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Row 3: Kembalian & Bayar
+              Row(
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "KEMBALIAN",
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textSecondary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Text(
+                          CurrencyFormat.convertToIdr(change, 0),
+                          style: GoogleFonts.jetBrainsMono(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            color: canPay
+                                ? AppTheme.successColor
+                                : (cashier.cashReceived > 0
+                                    ? AppTheme.errorColor
+                                    : AppTheme.textPrimary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 6,
+                    child: SizedBox(
+                      height: 42,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: canPay
+                              ? AppTheme.primaryColor
+                              : const Color(0xFFCBD5E1),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        onPressed: canPay
+                            ? () {
+                                HapticFeedback.heavyImpact();
+                                cashier.processCheckout(cart);
+                                _cashCtrl.clear();
+                              }
+                            : null,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_rounded, size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              "BAYAR (${cart.totalQty})",
+                              style: GoogleFonts.jetBrainsMono(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ==================== CHECKOUT DOCK (PORTRAIT ONLY) ====================
+class _CheckoutDock extends StatelessWidget {
+  const _CheckoutDock();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.surfaceColor,
+          border: Border(
+            top: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+          ),
+        ),
+        child: const SafeArea(
+          top: false,
+          child: _CheckoutConsole(),
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== PRINTER STATUS BAR (MINIMALIST) ====================
 class _PrinterStatusBar extends StatelessWidget {
   const _PrinterStatusBar();
 
@@ -198,58 +907,48 @@ class _PrinterStatusBar extends StatelessWidget {
         return InkWell(
           onTap: ctrl.isPrinterLoading ? null : () => _showPrinterList(context),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: connected
-                  ? const Color(0xFFF0FDF4)
-                  : const Color(0xFFFFFBEB),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+            decoration: const BoxDecoration(
+              color: AppTheme.surfaceColor,
               border: Border(
-                bottom: BorderSide(
-                  color: connected
-                      ? const Color(0xFFBBF7D0)
-                      : const Color(0xFFFDE68A),
-                  width: 1,
-                ),
+                bottom: BorderSide(color: AppTheme.cardBorderColor, width: 1),
               ),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 8,
-                  height: 8,
+                  width: 6,
+                  height: 6,
                   decoration: BoxDecoration(
-                    color: connected
-                        ? AppTheme.successColor
-                        : AppTheme.warningColor,
+                    color: connected ? AppTheme.successColor : AppTheme.textMuted,
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Row(
                     children: [
                       Text(
-                        connected ? "Printer Terhubung: " : "Printer Terputus: ",
-                        style: TextStyle(
+                        connected ? "PRINTER AKTIF: " : "PRINTER OFFLINE: ",
+                        style: GoogleFonts.jetBrainsMono(
                           fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                          color: connected
-                              ? const Color(0xFF166534)
-                              : const Color(0xFF92400E),
+                          fontSize: 10,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: 0.3,
                         ),
                       ),
                       Flexible(
                         child: Text(
                           connected
-                              ? (ctrl.selectedDevice?.name ?? "Thermal Ready")
-                              : "Ketuk untuk menyambungkan",
+                              ? (ctrl.selectedDevice?.name ?? "Thermal Ready (58mm)")
+                              : "Ketuk untuk hubungkan bluetooth",
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: connected
-                                ? const Color(0xFF15803D)
-                                : const Color(0xFFB45309),
+                                ? AppTheme.textSecondary
+                                : AppTheme.textMuted,
                           ),
                         ),
                       ),
@@ -258,8 +957,8 @@ class _PrinterStatusBar extends StatelessWidget {
                 ),
                 if (ctrl.isPrinterLoading)
                   const SizedBox(
-                    width: 14,
-                    height: 14,
+                    width: 12,
+                    height: 12,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: AppTheme.primaryColor,
@@ -268,7 +967,7 @@ class _PrinterStatusBar extends StatelessWidget {
                 else
                   const Icon(
                     Icons.chevron_right_rounded,
-                    size: 18,
+                    size: 16,
                     color: AppTheme.textMuted,
                   ),
               ],
@@ -284,14 +983,14 @@ class _PrinterStatusBar extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        title: Row(
           children: [
-            Icon(Icons.print_rounded, color: AppTheme.primaryColor, size: 22),
-            SizedBox(width: 10),
+            const Icon(Icons.print_rounded, color: AppTheme.primaryColor, size: 18),
+            const SizedBox(width: 8),
             Text(
-              "Pilih Printer Bluetooth",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              "Perangkat Printer Bluetooth",
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15),
             ),
           ],
         ),
@@ -299,16 +998,16 @@ class _PrinterStatusBar extends StatelessWidget {
           width: double.maxFinite,
           child: ctrl.devices.isEmpty
               ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.bluetooth_searching, size: 40, color: AppTheme.textMuted),
-                      SizedBox(height: 12),
+                    children: [
+                      const Icon(Icons.bluetooth_searching, size: 32, color: AppTheme.textMuted),
+                      const SizedBox(height: 10),
                       Text(
                         "Tidak ada printer bluetooth terdeteksi.\nPastikan bluetooth aktif dan printer menyala.",
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        style: GoogleFonts.plusJakartaSans(color: AppTheme.textSecondary, fontSize: 12),
                       ),
                     ],
                   ),
@@ -318,15 +1017,15 @@ class _PrinterStatusBar extends StatelessWidget {
                   itemCount: ctrl.devices.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (_, i) => ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    leading: const Icon(Icons.print_outlined, color: AppTheme.textPrimary),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    leading: const Icon(Icons.print_outlined, color: AppTheme.textPrimary, size: 18),
                     title: Text(
                       ctrl.devices[i].name,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                     subtitle: Text(
                       ctrl.devices[i].macAdress,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      style: GoogleFonts.jetBrainsMono(fontSize: 10.5, color: AppTheme.textMuted),
                     ),
                     onTap: () {
                       Navigator.pop(context);
@@ -338,335 +1037,21 @@ class _PrinterStatusBar extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Tutup", style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text("Tutup", style: GoogleFonts.plusJakartaSans(color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
             onPressed: () {
               Navigator.pop(context);
               ctrl.initPrinter();
             },
-            icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text("Scan Ulang"),
+            icon: const Icon(Icons.refresh_rounded, size: 14),
+            label: Text("Scan Ulang", style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 12)),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ==================== CHECKOUT DOCK ====================
-class _CheckoutDock extends StatefulWidget {
-  const _CheckoutDock();
-
-  @override
-  State<_CheckoutDock> createState() => _CheckoutDockState();
-}
-
-class _CheckoutDockState extends State<_CheckoutDock> {
-  final TextEditingController _cashCtrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _cashCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Consumer2<CartProvider, CashierController>(
-        builder: (_, cart, cashier, _) {
-          final total = cart.totalAmount;
-          final change = cashier.calculateChange(total);
-          final canPay = cart.items.isNotEmpty && cashier.isPaymentSufficient(total);
-
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Row 1: Total Amount & Struk Toggle
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "TOTAL TAGIHAN",
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textSecondary,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              CurrencyFormat.convertToIdr(total, 0),
-                              style: const TextStyle(
-                                color: AppTheme.textPrimary,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 22,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        // Struk toggle pill
-                        InkWell(
-                          onTap: () => cashier.toggleStrukOption(!cashier.withStruk),
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: cashier.withStruk
-                                  ? AppTheme.primaryColor.withValues(alpha: 0.08)
-                                  : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: cashier.withStruk
-                                    ? AppTheme.primaryColor.withValues(alpha: 0.3)
-                                    : AppTheme.cardBorderColor,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.receipt_rounded,
-                                  size: 15,
-                                  color: cashier.withStruk
-                                      ? AppTheme.primaryColor
-                                      : AppTheme.textMuted,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  "Cetak Struk",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: cashier.withStruk
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  cashier.withStruk
-                                      ? Icons.check_circle_rounded
-                                      : Icons.radio_button_unchecked_rounded,
-                                  size: 14,
-                                  color: cashier.withStruk
-                                      ? AppTheme.primaryColor
-                                      : AppTheme.textMuted,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Row 2: Cash Input & Quick Cash Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: Container(
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: AppTheme.backgroundColor,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.cardBorderColor),
-                            ),
-                            child: TextField(
-                              controller: _cashCtrl,
-                              keyboardType: TextInputType.number,
-                              onChanged: cashier.updateCashReceived,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Uang diterima',
-                                hintStyle: const TextStyle(
-                                  color: AppTheme.textMuted,
-                                  fontSize: 12,
-                                ),
-                                prefixIcon: const Icon(
-                                  Icons.payments_outlined,
-                                  size: 18,
-                                  color: AppTheme.textSecondary,
-                                ),
-                                suffixIcon: _cashCtrl.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 16),
-                                        onPressed: () {
-                                          _cashCtrl.clear();
-                                          cashier.clearPayment();
-                                        },
-                                      )
-                                    : null,
-                                isDense: true,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 11,
-                                  horizontal: 10,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 6,
-                          child: SizedBox(
-                            height: 42,
-                            child: ListView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              children: [
-                                _QuickCashPill(
-                                  label: "Uang Pas",
-                                  amount: total,
-                                  controller: _cashCtrl,
-                                ),
-                                _QuickCashPill(
-                                  label: "50 rb",
-                                  amount: 50000,
-                                  controller: _cashCtrl,
-                                ),
-                                _QuickCashPill(
-                                  label: "100 rb",
-                                  amount: 100000,
-                                  controller: _cashCtrl,
-                                ),
-                                _QuickCashPill(
-                                  label: "200 rb",
-                                  amount: 200000,
-                                  controller: _cashCtrl,
-                                ),
-                                _QuickCashPill(
-                                  label: "500 rb",
-                                  amount: 500000,
-                                  controller: _cashCtrl,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Row 3: Kembalian & Bayar Button
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "KEMBALIAN",
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textSecondary,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                CurrencyFormat.convertToIdr(change, 0),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                  color: canPay
-                                      ? AppTheme.successColor
-                                      : (cashier.cashReceived > 0
-                                          ? AppTheme.errorColor
-                                          : AppTheme.textPrimary),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          flex: 6,
-                          child: SizedBox(
-                            height: 46,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: canPay
-                                    ? AppTheme.primaryDark
-                                    : const Color(0xFFCBD5E1),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              onPressed: canPay
-                                  ? () {
-                                      HapticFeedback.heavyImpact();
-                                      cashier.processCheckout(cart);
-                                      _cashCtrl.clear();
-                                    }
-                                  : null,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.check_rounded, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    "BAYAR (${cart.totalQty})",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -690,7 +1075,7 @@ class _QuickCashPill extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         onTap: () {
           HapticFeedback.lightImpact();
           controller.text = amount.toString();
@@ -700,15 +1085,15 @@ class _QuickCashPill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: AppTheme.backgroundColor,
-            borderRadius: BorderRadius.circular(8),
+            color: AppTheme.surfaceRecessed,
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: AppTheme.cardBorderColor),
           ),
           child: Text(
-            label,
-            style: const TextStyle(
+            label.toUpperCase(),
+            style: GoogleFonts.jetBrainsMono(
               color: AppTheme.textPrimary,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
               fontSize: 11,
             ),
           ),
@@ -727,125 +1112,123 @@ class _CartItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cart = context.read<CartProvider>();
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Slidable(
-        key: ValueKey(item.product.id),
-        endActionPane: ActionPane(
-          motion: const BehindMotion(),
-          extentRatio: 0.22,
+    return Slidable(
+      key: ValueKey(item.product.id),
+      endActionPane: ActionPane(
+        motion: const BehindMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (_) {
+              HapticFeedback.mediumImpact();
+              cart.removeItem(item.product.id);
+            },
+            backgroundColor: AppTheme.errorColor,
+            foregroundColor: Colors.white,
+            icon: Icons.delete_outline_rounded,
+            label: 'Hapus',
+            borderRadius: const BorderRadius.horizontal(
+              right: Radius.circular(8),
+            ),
+          ),
+        ],
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.cardBorderColor, width: 1),
+        ),
+        child: Row(
           children: [
-            SlidableAction(
-              onPressed: (_) {
-                HapticFeedback.mediumImpact();
-                cart.removeItem(item.product.id);
-              },
-              backgroundColor: AppTheme.errorColor,
-              foregroundColor: Colors.white,
-              icon: Icons.delete_outline_rounded,
-              label: 'Hapus',
-              borderRadius: const BorderRadius.horizontal(
-                right: Radius.circular(12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.product.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        CurrencyFormat.convertToIdr(item.product.price * item.qty, 0),
+                        style: GoogleFonts.jetBrainsMono(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "@ ${CurrencyFormat.convertToIdr(item.product.price, 0)}",
+                        style: GoogleFonts.jetBrainsMono(
+                          color: AppTheme.textMuted,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.cardBorderColor, width: 1),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.product.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceRecessed,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.cardBorderColor),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      cart.decreaseQuantity(item.product.id);
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.remove, size: 14, color: AppTheme.textPrimary),
+                    ),
+                  ),
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 22),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${item.qty}',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
                         color: AppTheme.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          CurrencyFormat.convertToIdr(item.product.price * item.qty, 0),
-                          style: const TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "@ ${CurrencyFormat.convertToIdr(item.product.price, 0)}",
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+                  ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      cart.addQuantity(item.product.id);
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.add, size: 14, color: AppTheme.textPrimary),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.cardBorderColor),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        cart.decreaseQuantity(item.product.id);
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: Icon(Icons.remove, size: 14, color: AppTheme.textPrimary),
-                      ),
-                    ),
-                    Container(
-                      constraints: const BoxConstraints(minWidth: 24),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '${item.qty}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        cart.addQuantity(item.product.id);
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.all(6),
-                        child: Icon(Icons.add, size: 14, color: AppTheme.textPrimary),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -960,18 +1343,18 @@ class _TransactionSuccessDialog extends StatelessWidget {
     final cashier = context.read<CashierController>();
     return AlertDialog(
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       content: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.88,
+        width: MediaQuery.of(context).size.width * 0.7,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 54,
+                height: 54,
                 decoration: BoxDecoration(
                   color: AppTheme.successColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
@@ -984,14 +1367,14 @@ class _TransactionSuccessDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                "Transaksi Berhasil",
+                "Transaksi Berhasil!",
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
                   color: AppTheme.textPrimary,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 "Nota: #$invoice",
                 style: const TextStyle(
@@ -1005,17 +1388,17 @@ class _TransactionSuccessDialog extends StatelessWidget {
 
               // Item breakdown container
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppTheme.cardBorderColor),
                 ),
                 child: Column(
                   children: [
                     ...items.map(
                       (item) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 3),
                         child: Row(
                           children: [
                             Expanded(
@@ -1040,7 +1423,7 @@ class _TransactionSuccessDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Divider(height: 16),
+                    const Divider(height: 14),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1056,7 +1439,7 @@ class _TransactionSuccessDialog extends StatelessWidget {
                           CurrencyFormat.convertToIdr(total, 0),
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
-                            fontSize: 16,
+                            fontSize: 15,
                             color: AppTheme.primaryColor,
                           ),
                         ),
@@ -1075,7 +1458,7 @@ class _TransactionSuccessDialog extends StatelessWidget {
             Expanded(
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
                   side: const BorderSide(color: AppTheme.cardBorderColor),
                 ),
                 onPressed: () {
@@ -1093,7 +1476,7 @@ class _TransactionSuccessDialog extends StatelessWidget {
             Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
                   backgroundColor: AppTheme.primaryDark,
                 ),
                 onPressed: () {

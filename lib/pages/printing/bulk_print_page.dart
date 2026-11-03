@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/product_model.dart';
 import '../../controllers/bulk_print_controller.dart';
+import '../../controllers/tablet_mode_controller.dart';
 import '../../config/app_theme.dart';
 
 class BulkPrintPage extends StatelessWidget {
@@ -29,14 +31,35 @@ class BulkPrintPage extends StatelessWidget {
 
   AppBar _buildAppBar() {
     return AppBar(
-      title: const Text(
-        "Cetak Label QR Barcode",
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 17,
-          color: AppTheme.textPrimary,
-          letterSpacing: -0.2,
-        ),
+      title: Row(
+        children: [
+          Text(
+            "Cetak Label QR Barcode",
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              color: AppTheme.textPrimary,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AppTheme.cardBorderColor),
+            ),
+            child: Text(
+              "PDF UTILITY",
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -47,9 +70,9 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceColor,
         border: Border(
           bottom: BorderSide(color: AppTheme.cardBorderColor, width: 1),
         ),
@@ -57,22 +80,22 @@ class _SearchBar extends StatelessWidget {
       child: Consumer<BulkPrintController>(
         builder: (_, controller, _) {
           return Container(
-            height: 42,
+            height: 40,
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(10),
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: AppTheme.cardBorderColor),
             ),
             child: TextField(
-              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-              decoration: const InputDecoration(
-                hintText: "Cari produk untuk dicetak...",
-                hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.textSecondary),
+              style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+              decoration: InputDecoration(
+                hintText: "Cari produk dengan nama atau kode...",
+                hintStyle: GoogleFonts.plusJakartaSans(color: AppTheme.textMuted, fontSize: 12),
+                prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondary),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               onChanged: controller.search,
             ),
@@ -89,6 +112,8 @@ class _ProductList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = context.watch<TabletModeController>().isTabletLayout(context);
+
     return Consumer<BulkPrintController>(
       builder: (_, controller, _) {
         if (controller.isLoading) {
@@ -105,7 +130,24 @@ class _ProductList extends StatelessWidget {
         }
 
         if (controller.filteredProducts.isEmpty) {
-          return _EmptyState();
+          return const _EmptyState();
+        }
+
+        if (isTablet) {
+          return GridView.builder(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 2.8,
+            ),
+            itemCount: controller.filteredProducts.length,
+            itemBuilder: (_, index) {
+              return _ProductItem(product: controller.filteredProducts[index]);
+            },
+          );
         }
 
         return ListView.separated(
@@ -123,17 +165,19 @@ class _ProductList extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.inventory_2_outlined, size: 48, color: AppTheme.textMuted),
-          SizedBox(height: 12),
+        children: [
+          const Icon(Icons.inventory_2_outlined, size: 36, color: AppTheme.textMuted),
+          const SizedBox(height: 10),
           Text(
             "Tidak ada produk ditemukan",
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+            style: GoogleFonts.plusJakartaSans(color: AppTheme.textSecondary, fontSize: 12.5, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -156,8 +200,8 @@ class _ProductItem extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: selected ? AppTheme.primaryColor : AppTheme.cardBorderColor,
               width: selected ? 1.5 : 1,
@@ -166,18 +210,18 @@ class _ProductItem extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: selected
-                      ? AppTheme.primaryColor.withValues(alpha: 0.1)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
+                      ? AppTheme.primaryColor
+                      : AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Icon(
                   Icons.qr_code_2_rounded,
-                  size: 22,
-                  color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                  size: 20,
+                  color: selected ? Colors.white : AppTheme.textSecondary,
                 ),
               ),
               const SizedBox(width: 12),
@@ -210,7 +254,7 @@ class _ProductInfo extends StatelessWidget {
             product.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.w700,
               fontSize: 13,
               color: AppTheme.textPrimary,
@@ -218,10 +262,10 @@ class _ProductInfo extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            "Stok saat ini: ${product.stock}",
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppTheme.textSecondary,
+            "Stok gudang: ${product.stock} pcs",
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10.5,
+              color: AppTheme.textMuted,
             ),
           ),
         ],
@@ -245,8 +289,8 @@ class _QuantityControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(8),
+        color: AppTheme.surfaceRecessed,
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppTheme.cardBorderColor),
       ),
       child: Row(
@@ -269,8 +313,8 @@ class _QuantityControl extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               "$qty",
-              style: TextStyle(
-                fontSize: 13,
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 12.5,
                 fontWeight: FontWeight.w800,
                 color: qty > 0 ? AppTheme.primaryColor : AppTheme.textSecondary,
               ),
@@ -299,19 +343,12 @@ class _BottomBar extends StatelessWidget {
         final total = controller.getTotalStickers();
 
         return Container(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: const Border(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          decoration: const BoxDecoration(
+            color: AppTheme.surfaceColor,
+            border: Border(
               top: BorderSide(color: AppTheme.cardBorderColor, width: 1),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -3),
-              ),
-            ],
           ),
           child: SafeArea(
             top: false,
@@ -322,21 +359,21 @@ class _BottomBar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        "TOTAL STIKER",
-                        style: TextStyle(
+                      Text(
+                        "TOTAL CETAK",
+                        style: GoogleFonts.jetBrainsMono(
                           color: AppTheme.textSecondary,
-                          fontSize: 10,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        "$total Lembar",
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                        "$total Lembar Label",
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
                           color: AppTheme.textPrimary,
                         ),
                       ),
@@ -345,14 +382,14 @@ class _BottomBar extends StatelessWidget {
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: total > 0 ? AppTheme.primaryDark : const Color(0xFFCBD5E1),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    backgroundColor: total > 0 ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                   ),
-                  icon: const Icon(Icons.print_rounded, size: 18),
-                  label: const Text(
-                    "CETAK PDF",
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
+                  icon: const Icon(Icons.print_rounded, size: 16),
+                  label: Text(
+                    "BUAT DOKUMEN PDF",
+                    style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 0.5),
                   ),
                   onPressed: total > 0
                       ? () {

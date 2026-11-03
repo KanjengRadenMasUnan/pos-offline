@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../config/app_theme.dart';
 import '../../../controllers/cashier_controller.dart';
@@ -45,8 +46,8 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
       builder: (_, scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Column(
             children: [
@@ -54,8 +55,8 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
               Center(
                 child: Container(
                   margin: const EdgeInsets.only(top: 10, bottom: 6),
-                  width: 36,
-                  height: 4,
+                  width: 32,
+                  height: 3,
                   decoration: BoxDecoration(
                     color: AppTheme.cardBorderColor,
                     borderRadius: BorderRadius.circular(2),
@@ -63,16 +64,16 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Column(
                   children: [
                     _buildHeader(),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     _buildSearchField(),
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              const Divider(height: 1, color: AppTheme.cardBorderColor),
               Expanded(child: _buildSearchResults(scrollController)),
             ],
           ),
@@ -85,23 +86,30 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
-          'Pencarian Produk',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: AppTheme.textPrimary,
-            letterSpacing: -0.2,
-          ),
+        Row(
+          children: [
+            Container(width: 3, height: 12, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              'CARI PRODUK CEPAT',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
         ),
         IconButton(
           icon: Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(8),
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppTheme.cardBorderColor),
             ),
-            child: const Icon(Icons.close, size: 16, color: AppTheme.textSecondary),
+            child: const Icon(Icons.close, size: 14, color: AppTheme.textPrimary),
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -111,19 +119,20 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
 
   Widget _buildSearchField() {
     return Container(
+      height: 42,
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(10),
+        color: AppTheme.surfaceRecessed,
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppTheme.cardBorderColor),
       ),
       child: TextField(
         controller: _searchCtrl,
         autofocus: true,
-        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+        style: GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
         decoration: InputDecoration(
-          hintText: 'Ketik nama barang...',
-          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
-          prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.textSecondary),
+          hintText: 'Ketik nama atau scan barcode...',
+          hintStyle: GoogleFonts.plusJakartaSans(color: AppTheme.textMuted, fontSize: 12),
+          prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondary),
           suffixIcon: _searchCtrl.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 16, color: AppTheme.textSecondary),
@@ -135,9 +144,7 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
                 )
               : null,
           border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         ),
         onChanged: (value) {
           setState(() {});
@@ -192,8 +199,8 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppTheme.cardBorderColor),
       ),
       child: Row(
@@ -206,7 +213,7 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
                   product.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                     color: AppTheme.textPrimary,
@@ -217,33 +224,35 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
                   children: [
                     Text(
                       CurrencyFormat.convertToIdr(product.price, 0),
-                      style: const TextStyle(
+                      style: GoogleFonts.jetBrainsMono(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: !hasStock
-                            ? AppTheme.errorColor.withValues(alpha: 0.1)
-                            : (isLowStock
-                                ? AppTheme.warningColor.withValues(alpha: 0.1)
-                                : AppTheme.successColor.withValues(alpha: 0.1)),
+                        color: AppTheme.surfaceRecessed,
                         borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: !hasStock
+                              ? AppTheme.errorColor.withValues(alpha: 0.4)
+                              : AppTheme.cardBorderColor,
+                        ),
                       ),
                       child: Text(
                         !hasStock
-                            ? 'Stok Habis'
-                            : (isLowStock ? 'Sisa $remainingStock' : 'Stok: $remainingStock'),
-                        style: TextStyle(
-                          fontSize: 10,
+                            ? 'HABIS'
+                            : (isLowStock ? 'SISA $remainingStock' : 'STOK: $remainingStock'),
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w700,
                           color: !hasStock
                               ? AppTheme.errorColor
-                              : (isLowStock ? AppTheme.warningColor : AppTheme.successColor),
+                              : (isLowStock ? AppTheme.warningColor : AppTheme.textSecondary),
                         ),
                       ),
                     ),
@@ -255,12 +264,12 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
           const SizedBox(width: 10),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: hasStock ? AppTheme.primaryDark : const Color(0xFFE2E8F0),
+              backgroundColor: hasStock ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               minimumSize: const Size(0, 36),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
             onPressed: hasStock
                 ? () {
@@ -268,12 +277,15 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
                     controller.addToCartFromSearch(product, cart);
                   }
                 : null,
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.add, size: 16),
-                SizedBox(width: 4),
-                Text("Tambah", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                const Icon(Icons.add, size: 15),
+                const SizedBox(width: 4),
+                Text(
+                  "PILIH",
+                  style: GoogleFonts.jetBrainsMono(fontSize: 11, fontWeight: FontWeight.w800),
+                ),
               ],
             ),
           ),
@@ -286,12 +298,12 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.keyboard_alt_outlined, size: 44, color: AppTheme.textMuted),
-          SizedBox(height: 10),
+        children: [
+          const Icon(Icons.keyboard_alt_outlined, size: 36, color: AppTheme.textMuted),
+          const SizedBox(height: 10),
           Text(
-            'Ketik nama barang untuk mencari',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            'Ketik nama atau barcode barang untuk mencari',
+            style: GoogleFonts.plusJakartaSans(color: AppTheme.textSecondary, fontSize: 12.5),
           ),
         ],
       ),
@@ -302,12 +314,12 @@ class _SearchProductSheetState extends State<SearchProductSheet> {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.search_off_rounded, size: 44, color: AppTheme.textMuted),
-          SizedBox(height: 10),
+        children: [
+          const Icon(Icons.search_off_rounded, size: 36, color: AppTheme.textMuted),
+          const SizedBox(height: 10),
           Text(
-            'Barang tidak ditemukan',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            'Barang tidak ditemukan dalam inventori',
+            style: GoogleFonts.plusJakartaSans(color: AppTheme.textSecondary, fontSize: 12.5),
           ),
         ],
       ),

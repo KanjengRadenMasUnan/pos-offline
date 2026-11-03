@@ -1,44 +1,81 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart' hide Config;
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../services/local_db_service.dart';
 import '../../controllers/server_status_controller.dart';
+import '../../controllers/tablet_mode_controller.dart';
 import '../../config/app_theme.dart';
 import '../../config/app_config.dart';
+import 'receipt_customizer_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: _AppBar(),
-      body: const _Body(),
+      body: _Body(),
     );
   }
 }
 
 // --- APP BAR ---
 class _AppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _AppBar();
+
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: const Text(
-        "Pengaturan Sistem",
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 17,
-          color: AppTheme.textPrimary,
-          letterSpacing: -0.2,
-        ),
+      elevation: 0,
+      backgroundColor: Colors.white,
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(color: AppTheme.cardBorderColor, height: 1),
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: Row(
+        children: [
+          Text(
+            "Pengaturan Sistem",
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: AppTheme.textPrimary,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AppTheme.cardBorderColor),
+            ),
+            child: Text(
+              "SYS-CONFIG",
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textSecondary,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
 }
 
 // --- MAIN CONTENT ---
@@ -47,15 +84,69 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+    final tabletCtrl = context.watch<TabletModeController>();
+    final isTablet = tabletCtrl.isTabletLayout(context);
+
+    // Section 1: Display & Tablet Mode
+    final displaySection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section: Koneksi & Perangkat
-        const _SectionHeader(title: "KONEKSI & HARDWARE"),
+        const _SectionHeader(prefix: "// 01", title: "TAMPILAN & MODE TABLET"),
+        _SettingsGroupCard(
+          children: [
+            ListTile(
+              dense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              leading: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.cardBorderColor),
+                ),
+                child: const Icon(
+                  Icons.tablet_mac_rounded,
+                  size: 18,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              title: Text(
+                "Mode Tablet Horizontal",
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                "Kunci orientasi horizontal & optimalkan dashboard lebar",
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+              trailing: Switch.adaptive(
+                value: tabletCtrl.isTabletLandscape,
+                activeTrackColor: AppTheme.primaryDark,
+                activeThumbColor: Colors.white,
+                onChanged: (val) {
+                  HapticFeedback.mediumImpact();
+                  tabletCtrl.setTabletLandscape(val);
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    // Section 2: Hardware & Koneksi
+    final hardwareSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionHeader(prefix: "// 02", title: "KONEKSI & HARDWARE POS"),
         _SettingsGroupCard(
           children: [
             _SettingsTile(
+              code: "NET-IP",
               icon: Icons.dns_outlined,
               title: "Alamat IP Server",
               subtitle: "Atur alamat API backend server offline",
@@ -64,8 +155,9 @@ class _Body extends StatelessWidget {
                 _showUrlSettingDialog(context);
               },
             ),
-            const Divider(height: 1),
+            const Divider(height: 1, color: AppTheme.cardBorderColor),
             _SettingsTile(
+              code: "THERMAL",
               icon: Icons.print_outlined,
               title: "Printer Thermal Bluetooth",
               subtitle: "Cek pairing dan sambungkan printer kasir",
@@ -74,25 +166,34 @@ class _Body extends StatelessWidget {
                 _showPrinterInfo(context);
               },
             ),
-            const Divider(height: 1),
+            const Divider(height: 1, color: AppTheme.cardBorderColor),
             _SettingsTile(
-              icon: Icons.receipt_long_outlined,
-              title: "Kustomisasi Struk Toko",
-              subtitle: "Nama toko, alamat, footer & ukuran kertas",
+              code: "CUSTOM-58",
+              icon: Icons.receipt_long_rounded,
+              title: "Kustomisasi Struk Toko (58mm)",
+              subtitle: "Atur logo di posisi manapun, layout 58mm & identitas toko",
               onTap: () {
                 HapticFeedback.lightImpact();
-                _showReceiptSettingDialog(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ReceiptCustomizerPage()),
+                );
               },
             ),
           ],
         ),
-        const SizedBox(height: 24),
+      ],
+    );
 
-        // Section: Data & Cadangan
-        const _SectionHeader(title: "DATA & CADANGAN"),
+    // Section 3: Data & Cadangan
+    final dataSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionHeader(prefix: "// 03", title: "DATA & CADANGAN DATABASE"),
         _SettingsGroupCard(
           children: [
             _SettingsTile(
+              code: "BACKUP",
               icon: Icons.backup_outlined,
               title: "Cadangkan Database (Backup)",
               subtitle: "Ekspor dan bagikan file .db lokal",
@@ -101,8 +202,9 @@ class _Body extends StatelessWidget {
                 _handleBackup(context);
               },
             ),
-            const Divider(height: 1),
+            const Divider(height: 1, color: AppTheme.cardBorderColor),
             _SettingsTile(
+              code: "RESTORE",
               icon: Icons.settings_backup_restore_rounded,
               title: "Pulihkan Database (Restore)",
               subtitle: "Ganti database saat ini dengan cadangan .db",
@@ -113,28 +215,42 @@ class _Body extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
+      ],
+    );
 
-        // Section: Akun & Aplikasi
-        const _SectionHeader(title: "INFORMASI SISTEM"),
+    // Section 4: Sistem
+    final systemSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionHeader(prefix: "// 04", title: "INFORMASI SISTEM"),
         _SettingsGroupCard(
           children: [
             _SettingsTile(
+              code: "VERSION",
               icon: Icons.info_outline_rounded,
-              title: "Versi Aplikasi",
+              title: "Versi Aplikasi POS",
               subtitle: "${Config.appName} v${Config.appVersion}",
-              trailing: const Text(
-                "Up to date",
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.successColor,
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.forestGreen.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AppTheme.forestGreen.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  "STABLE // OFFLINE",
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.forestGreen,
+                  ),
                 ),
               ),
               onTap: () {},
             ),
-            const Divider(height: 1),
+            const Divider(height: 1, color: AppTheme.cardBorderColor),
             _SettingsTile(
+              code: "EXIT",
               icon: Icons.power_settings_new_rounded,
               title: "Keluar dari Aplikasi",
               subtitle: "Tutup sesi operasional kasir",
@@ -148,26 +264,88 @@ class _Body extends StatelessWidget {
         ),
       ],
     );
+
+    if (isTablet) {
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  displaySection,
+                  const SizedBox(height: 16),
+                  hardwareSection,
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  dataSection,
+                  const SizedBox(height: 16),
+                  systemSection,
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      children: [
+        displaySection,
+        const SizedBox(height: 16),
+        hardwareSection,
+        const SizedBox(height: 16),
+        dataSection,
+        const SizedBox(height: 16),
+        systemSection,
+      ],
+    );
   }
 }
 
 // --- REUSABLE GROUP COMPONENTS ---
 class _SectionHeader extends StatelessWidget {
+  final String prefix;
   final String title;
-  const _SectionHeader({required this.title});
+  const _SectionHeader({required this.prefix, required this.title});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: AppTheme.textSecondary,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-          letterSpacing: 0.8,
-        ),
+      child: Row(
+        children: [
+          Text(
+            prefix,
+            style: GoogleFonts.jetBrainsMono(
+              color: AppTheme.textMuted,
+              fontWeight: FontWeight.w800,
+              fontSize: 10,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: GoogleFonts.jetBrainsMono(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w700,
+              fontSize: 10.5,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -182,7 +360,7 @@ class _SettingsGroupCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppTheme.cardBorderColor, width: 1),
       ),
       clipBehavior: Clip.antiAlias,
@@ -195,6 +373,7 @@ class _SettingsGroupCard extends StatelessWidget {
 }
 
 class _SettingsTile extends StatelessWidget {
+  final String? code;
   final IconData icon;
   final String title;
   final String subtitle;
@@ -203,6 +382,7 @@ class _SettingsTile extends StatelessWidget {
   final bool isDestructive;
 
   const _SettingsTile({
+    this.code,
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -216,33 +396,63 @@ class _SettingsTile extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       leading: Container(
-        width: 36,
-        height: 36,
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
           color: isDestructive
-              ? AppTheme.errorColor.withValues(alpha: 0.1)
-              : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(8),
+              ? AppTheme.stampRed.withValues(alpha: 0.08)
+              : AppTheme.surfaceRecessed,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isDestructive ? AppTheme.stampRed.withValues(alpha: 0.3) : AppTheme.cardBorderColor,
+          ),
         ),
         child: Icon(
           icon,
-          size: 18,
-          color: isDestructive ? AppTheme.errorColor : AppTheme.textPrimary,
+          size: 17,
+          color: isDestructive ? AppTheme.stampRed : AppTheme.textPrimary,
         ),
       ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
-          color: isDestructive ? AppTheme.errorColor : AppTheme.textPrimary,
-        ),
+      title: Row(
+        children: [
+          if (code != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: isDestructive ? AppTheme.stampRed.withValues(alpha: 0.08) : AppTheme.surfaceRecessed,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: isDestructive ? AppTheme.stampRed.withValues(alpha: 0.3) : AppTheme.cardBorderColor,
+                ),
+              ),
+              child: Text(
+                code!,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700,
+                  color: isDestructive ? AppTheme.stampRed : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: isDestructive ? AppTheme.stampRed : AppTheme.textPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 11,
           color: AppTheme.textSecondary,
         ),
@@ -250,7 +460,7 @@ class _SettingsTile extends StatelessWidget {
       trailing: trailing ??
           const Icon(
             Icons.chevron_right_rounded,
-            size: 18,
+            size: 16,
             color: AppTheme.textMuted,
           ),
     );
@@ -259,192 +469,6 @@ class _SettingsTile extends StatelessWidget {
 
 // --- DIALOGS & LOGIC HELPERS ---
 
-void _showReceiptSettingDialog(BuildContext context) async {
-  final settings = await LocalDbService.instance.getReceiptSettings();
-
-  final nameController = TextEditingController(text: settings['store_name']);
-  final addressController = TextEditingController(text: settings['store_address']);
-  final contactController = TextEditingController(text: settings['store_contact']);
-  final footerController = TextEditingController(text: settings['footer_message']);
-  int paperSize = settings['paper_size'] ?? 58;
-
-  if (!context.mounted) return;
-
-  showDialog(
-    context: context,
-    builder: (dialogCtx) => StatefulBuilder(
-      builder: (context, setState) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text(
-            "Pengaturan Struk Toko",
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _dialogInput("Nama Toko", "Contoh: Nanda Cell", nameController),
-                  const SizedBox(height: 10),
-                  _dialogInput("Alamat Toko", "Contoh: Jl. Merdeka No. 10", addressController),
-                  const SizedBox(height: 10),
-                  _dialogInput("Kontak / WhatsApp", "Contoh: 0812-XXXX-XXXX", contactController),
-                  const SizedBox(height: 10),
-                  _dialogInput("Pesan Footer Struk", "Contoh: Terima Kasih!", footerController),
-                  const SizedBox(height: 14),
-                  const Text(
-                    "Ukuran Kertas Printer",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PaperSizeChoice(
-                          label: "58 mm (Standar)",
-                          size: 58,
-                          selectedSize: paperSize,
-                          onSelected: (val) => setState(() => paperSize = val),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _PaperSizeChoice(
-                          label: "80 mm (Besar)",
-                          size: 80,
-                          selectedSize: paperSize,
-                          onSelected: (val) => setState(() => paperSize = val),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text("Batal", style: TextStyle(color: AppTheme.textSecondary)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryDark,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              ),
-              onPressed: () async {
-                await LocalDbService.instance.updateReceiptSettings(
-                  nameController.text.trim(),
-                  addressController.text.trim(),
-                  contactController.text.trim(),
-                  footerController.text.trim(),
-                  paperSize,
-                );
-                if (dialogCtx.mounted) {
-                  Navigator.pop(dialogCtx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Pengaturan struk berhasil disimpan"),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              },
-              child: const Text("SIMPAN", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
-
-Widget _dialogInput(String label, String hint, TextEditingController controller) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.textSecondary,
-        ),
-      ),
-      const SizedBox(height: 4),
-      Container(
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.cardBorderColor),
-        ),
-        child: TextField(
-          controller: controller,
-          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            isDense: true,
-          ),
-        ),
-      ),
-    ],
-  );
-}
-
-class _PaperSizeChoice extends StatelessWidget {
-  final String label;
-  final int size;
-  final int selectedSize;
-  final ValueChanged<int> onSelected;
-
-  const _PaperSizeChoice({
-    required this.label,
-    required this.size,
-    required this.selectedSize,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = size == selectedSize;
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => onSelected(size),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryDark : AppTheme.backgroundColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? AppTheme.primaryDark : AppTheme.cardBorderColor,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppTheme.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 void _showUrlSettingDialog(BuildContext context) {
   final apiService = ApiService();
   final textController = TextEditingController(text: apiService.currentBaseUrl);
@@ -452,38 +476,41 @@ void _showUrlSettingDialog(BuildContext context) {
   showDialog(
     context: context,
     builder: (dialogCtx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppTheme.cardBorderColor),
+      ),
+      title: Text(
         "Konfigurasi Server API",
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "Masukkan alamat IP server backend lokal (offline):",
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppTheme.textSecondary),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(10),
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: AppTheme.cardBorderColor),
             ),
             child: TextField(
               controller: textController,
               autofocus: true,
-              style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
-              decoration: const InputDecoration(
+              style: GoogleFonts.jetBrainsMono(fontSize: 13),
+              decoration: InputDecoration(
                 hintText: "http://192.168.1.XX:8000/api",
-                hintStyle: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                prefixIcon: Icon(Icons.cloud_outlined, size: 18, color: AppTheme.textSecondary),
+                hintStyle: GoogleFonts.jetBrainsMono(fontSize: 12, color: AppTheme.textMuted),
+                prefixIcon: const Icon(Icons.cloud_outlined, size: 16, color: AppTheme.textSecondary),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
           ),
@@ -492,12 +519,16 @@ void _showUrlSettingDialog(BuildContext context) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogCtx),
-          child: const Text("Batal", style: TextStyle(color: AppTheme.textSecondary)),
+          child: Text(
+            "Batal",
+            style: GoogleFonts.plusJakartaSans(color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+          ),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primaryDark,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
           onPressed: () async {
             final url = textController.text.trim();
@@ -508,14 +539,18 @@ void _showUrlSettingDialog(BuildContext context) {
               Navigator.pop(dialogCtx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text("URL diperbarui: $url"),
+                  content: Text("URL diperbarui: $url", style: GoogleFonts.plusJakartaSans()),
                   behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                 ),
               );
               context.read<ServerStatusController>().checkStatus();
             }
           },
-          child: const Text("SIMPAN", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          child: Text(
+            "SIMPAN",
+            style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w700, fontSize: 11),
+          ),
         ),
       ],
     ),
@@ -524,9 +559,13 @@ void _showUrlSettingDialog(BuildContext context) {
 
 void _showPrinterInfo(BuildContext context) {
   ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text("Hubungkan printer melalui bar status di halaman Kasir"),
+    SnackBar(
+      content: Text(
+        "Hubungkan printer melalui bar status di halaman Kasir",
+        style: GoogleFonts.plusJakartaSans(),
+      ),
       behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     ),
   );
 }
@@ -547,27 +586,37 @@ Future<void> _handleRestore(BuildContext context) async {
   final confirm = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        "Pulihkan Database?",
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppTheme.cardBorderColor),
       ),
-      content: const Text(
+      title: Text(
+        "Pulihkan Database?",
+        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15),
+      ),
+      content: Text(
         "Semua data transaksi dan produk saat ini akan ditimpa dengan data dari file cadangan .db yang Anda pilih. Lanjutkan?",
-        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppTheme.textSecondary),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: const Text("Batal", style: TextStyle(color: AppTheme.textSecondary)),
+          child: Text(
+            "Batal",
+            style: GoogleFonts.plusJakartaSans(color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+          ),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primaryDark,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text("Ya, Pulihkan", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          child: Text(
+            "PULIHKAN",
+            style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w700, fontSize: 11),
+          ),
         ),
       ],
     ),
@@ -579,9 +628,10 @@ Future<void> _handleRestore(BuildContext context) async {
     final success = await LocalDbService.instance.importDatabase();
     if (success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Database berhasil dipulihkan!"),
+        SnackBar(
+          content: Text("Database berhasil dipulihkan!", style: GoogleFonts.plusJakartaSans()),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
       );
     }
@@ -598,24 +648,31 @@ void _showLogoutConfirm(BuildContext context) {
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        "Konfirmasi Keluar",
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppTheme.cardBorderColor),
       ),
-      content: const Text(
-        "Apakah Anda yakin ingin menutup aplikasi POS Nanda Cell?",
-        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+      title: Text(
+        "Konfirmasi Keluar",
+        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15),
+      ),
+      content: Text(
+        "Apakah Anda yakin ingin menutup sesi operasional POS?",
+        style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppTheme.textSecondary),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text("Batal", style: TextStyle(color: AppTheme.textSecondary)),
+          child: Text(
+            "Batal",
+            style: GoogleFonts.plusJakartaSans(color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+          ),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.errorColor,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            backgroundColor: AppTheme.stampRed,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           ),
           onPressed: () {
             if (Theme.of(context).platform == TargetPlatform.android) {
@@ -624,7 +681,10 @@ void _showLogoutConfirm(BuildContext context) {
               Navigator.pop(ctx);
             }
           },
-          child: const Text("KELUAR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+          child: Text(
+            "KELUAR",
+            style: GoogleFonts.jetBrainsMono(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11),
+          ),
         ),
       ],
     ),

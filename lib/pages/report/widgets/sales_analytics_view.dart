@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../controllers/sales_analytics_controller.dart';
+import '../../../controllers/tablet_mode_controller.dart';
 import '../../../models/sales_analytics_model.dart';
 import '../../../services/sales_analytics_export_service.dart';
+import '../../../config/app_theme.dart';
 import '../sales_analytics_dashboard_page.dart';
 
 class SalesAnalyticsView extends StatefulWidget {
@@ -47,9 +51,9 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
       _showPostAnalysisChoiceModal(_controller.summary!);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gagal memuat data penjualan.'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: Text('Gagal memuat data penjualan.', style: GoogleFonts.plusJakartaSans()),
+          backgroundColor: AppTheme.stampRed,
         ),
       );
     }
@@ -61,10 +65,15 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+          border: Border(
+            top: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+            left: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+            right: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -72,60 +81,66 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
           children: [
             Center(
               child: Container(
-                width: 44,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppTheme.cardBorderColor,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppTheme.forestGreen.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.forestGreen.withValues(alpha: 0.3)),
                   ),
                   child: const Icon(
                     Icons.check_circle_rounded,
-                    color: Color(0xFF059669),
-                    size: 24,
+                    color: AppTheme.forestGreen,
+                    size: 18,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Analisis Selesai! Pilih Tindakan:',
-                        style: TextStyle(
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                      Text(
+                        'ANALISIS SELESAI',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       Text(
-                        summary.periodTitle,
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        'Pilih tindakan untuk periode: ${summary.periodTitle}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: AppTheme.cardBorderColor),
+            const SizedBox(height: 12),
 
             // Opsi 1: Buka Dashboard Visual di Aplikasi
             _buildActionCard(
+              formatCode: 'GUI',
               title: 'Buka Dashboard Interaktif',
-              subtitle: 'Lihat grafik visual batang/garis dan metrik langsung di aplikasi',
-              icon: Icons.dashboard_customize_rounded,
-              color: const Color(0xFF2563EB),
-              bgColor: const Color(0xFFEFF6FF),
+              subtitle: 'Lihat diagram batang, grafik garis & metrik langsung',
+              icon: Icons.dashboard_outlined,
               onTap: () {
                 Navigator.pop(ctx);
                 Navigator.push(
@@ -136,15 +151,14 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
                 );
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // Opsi 2: Ekspor PDF
             _buildActionCard(
-              title: 'Ekspor ke Dokumen PDF (.pdf)',
-              subtitle: 'Laporan resmi siap cetak atau dibagikan',
-              icon: Icons.picture_as_pdf_rounded,
-              color: const Color(0xFFDC2626),
-              bgColor: const Color(0xFFFEF2F2),
+              formatCode: 'PDF',
+              title: 'Ekspor Dokumen PDF (.pdf)',
+              subtitle: 'Laporan resmi terstruktur siap cetak atau dibagikan',
+              icon: Icons.picture_as_pdf_outlined,
               onTap: () async {
                 Navigator.pop(ctx);
                 try {
@@ -157,15 +171,14 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
                 }
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // Opsi 3: Ekspor Excel
             _buildActionCard(
-              title: 'Ekspor ke Spreadsheet Excel (.xlsx)',
-              subtitle: 'File data angka lengkap terstruktur',
-              icon: Icons.table_chart_rounded,
-              color: const Color(0xFF059669),
-              bgColor: const Color(0xFFECFDF5),
+              formatCode: 'XLSX',
+              title: 'Ekspor Spreadsheet Excel (.xlsx)',
+              subtitle: 'Buku laporan angka terstruktur rapi untuk akuntansi',
+              icon: Icons.table_chart_outlined,
               onTap: () async {
                 Navigator.pop(ctx);
                 try {
@@ -178,15 +191,14 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
                 }
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             // Opsi 4: Ekspor PowerPoint
             _buildActionCard(
-              title: 'Ekspor ke Presentasi PowerPoint (.pptx)',
+              formatCode: 'PPTX',
+              title: 'Ekspor Presentasi PowerPoint (.pptx)',
               subtitle: 'Slide 16:9 widescreen eksekutif siap presentasi',
-              icon: Icons.slideshow_rounded,
-              color: const Color(0xFFEA580C),
-              bgColor: const Color(0xFFFFF7ED),
+              icon: Icons.slideshow_outlined,
               onTap: () async {
                 Navigator.pop(ctx);
                 try {
@@ -206,58 +218,65 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
   }
 
   Widget _buildActionCard({
+    required String formatCode,
     required String title,
     required String subtitle,
     required IconData icon,
-    required Color color,
-    required Color bgColor,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          color: AppTheme.surfaceRecessed,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.cardBorderColor),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
               decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AppTheme.cardBorderColor),
               ),
-              child: Icon(icon, color: color, size: 24),
+              child: Text(
+                formatCode,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
             ),
             const Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 15,
-              color: Color(0xFF94A3B8),
+              Icons.chevron_right_rounded,
+              size: 16,
+              color: AppTheme.textMuted,
             ),
           ],
         ),
@@ -278,26 +297,21 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = context.watch<TabletModeController>().isTabletLayout(context);
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       physics: const BouncingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // HEADER KARTU UTAMA
           Container(
-            padding: const EdgeInsets.all(22),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.cardBorderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,173 +319,323 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16),
+                        color: AppTheme.surfaceRecessed,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.cardBorderColor),
                       ),
                       child: const Icon(
-                        Icons.analytics_rounded,
-                        color: Color(0xFF2563EB),
-                        size: 28,
+                        Icons.insights_rounded,
+                        color: AppTheme.textPrimary,
+                        size: 20,
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    const Expanded(
+                    const SizedBox(width: 12),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Analisis Data Penjualan',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.textPrimary,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 1),
                           Text(
-                            'Pilih periode analitik untuk membuka dashboard',
-                            style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                            'Pilih skala periode untuk membuka dashboard analitik',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppTheme.textSecondary),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: AppTheme.cardBorderColor),
+                const SizedBox(height: 16),
 
-                // 1. PILIHAN SKALA PERIODE (3 PILIHAN BERSIH)
-                const Text(
-                  '1. Pilih Skala Periode Analisis',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF334155),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildScaleTile(
-                  scale: AnalyticsScale.yearly,
-                  title: '1 Tahun Penuh (12 Bulan)',
-                  subtitle: 'Menganalisis performa bulanan selama satu tahun kalender',
-                  icon: Icons.calendar_today_rounded,
-                ),
-                const SizedBox(height: 10),
-                _buildScaleTile(
-                  scale: AnalyticsScale.monthly,
-                  title: '1 Bulan Penuh (Harian)',
-                  subtitle: 'Menganalisis tren penjualan harian pada bulan tertentu',
-                  icon: Icons.calendar_view_month_rounded,
-                ),
-                const SizedBox(height: 10),
-                _buildScaleTile(
-                  scale: AnalyticsScale.customRange,
-                  title: 'Periode Tertentu (Rentang Bulan)',
-                  subtitle: 'Menganalisis rentang bulan khusus pada tahun tertentu',
-                  icon: Icons.date_range_rounded,
-                ),
-                const SizedBox(height: 22),
-
-                // 2. FORM PARAMETER WAKTU
-                const Text(
-                  '2. Tentukan Waktu Periode',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF334155),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildTimeParameters(),
-                const SizedBox(height: 20),
-
-                // 3. KARTU PREVIEW INFORMASI
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Row(
+                if (isTablet) ...[
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.info_outline_rounded,
-                        size: 20,
-                        color: Color(0xFF2563EB),
-                      ),
-                      const SizedBox(width: 10),
+                      // Kolom Kiri: Pilihan Skala
                       Expanded(
-                        child: Text(
-                          _getPreviewDescription(),
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            height: 1.45,
-                            color: Color(0xFF475569),
-                          ),
+                        flex: 5,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '// 01 SKALA PERIODE ANALISIS',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildScaleTile(
+                              code: '1Y',
+                              scale: AnalyticsScale.yearly,
+                              title: '1 Tahun Penuh (12 Bulan)',
+                              subtitle: 'Menganalisis performa bulanan selama satu tahun kalender',
+                              icon: Icons.calendar_today_rounded,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildScaleTile(
+                              code: '1M',
+                              scale: AnalyticsScale.monthly,
+                              title: '1 Bulan Penuh (Harian)',
+                              subtitle: 'Menganalisis tren penjualan harian pada bulan tertentu',
+                              icon: Icons.calendar_view_month_rounded,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildScaleTile(
+                              code: 'RNG',
+                              scale: AnalyticsScale.customRange,
+                              title: 'Periode Tertentu (Rentang Bulan)',
+                              subtitle: 'Menganalisis rentang bulan khusus pada tahun tertentu',
+                              icon: Icons.date_range_rounded,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+
+                      // Kolom Kanan: Parameter, Preview, & Aksi
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '// 02 WAKTU PERIODE',
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildTimeParameters(),
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceRecessed,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTheme.cardBorderColor),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.info_outline_rounded,
+                                    size: 16,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _getPreviewDescription(),
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11.5,
+                                        height: 1.4,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 46,
+                              child: ElevatedButton(
+                                onPressed: _controller.isLoading ? null : _handleStartAnalysis,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryDark,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: _controller.isLoading
+                                    ? const Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('MENGANALISIS DATA...'),
+                                        ],
+                                      )
+                                    : Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            'BUKA DASHBOARD ANALISIS',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Icon(Icons.arrow_forward_rounded, size: 16),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // 4. TOMBOL EKSEKUSI BESAR
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _controller.isLoading ? null : _handleStartAnalysis,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
+                ] else ...[
+                  // 1. PILIHAN SKALA PERIODE
+                  Text(
+                    '// 01 SKALA PERIODE ANALISIS',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textSecondary,
+                      letterSpacing: 0.5,
                     ),
-                    child: _controller.isLoading
-                        ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.2,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Text(
-                                'Menganalisis Seluruh Data...',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.dashboard_customize_rounded, size: 20),
-                              SizedBox(width: 10),
-                              Text(
-                                'Buka Dashboard Analisis',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(width: 6),
-                              Icon(Icons.arrow_forward_rounded, size: 18),
-                            ],
-                          ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  _buildScaleTile(
+                    code: '1Y',
+                    scale: AnalyticsScale.yearly,
+                    title: '1 Tahun Penuh (12 Bulan)',
+                    subtitle: 'Menganalisis performa bulanan selama satu tahun kalender',
+                    icon: Icons.calendar_today_rounded,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildScaleTile(
+                    code: '1M',
+                    scale: AnalyticsScale.monthly,
+                    title: '1 Bulan Penuh (Harian)',
+                    subtitle: 'Menganalisis tren penjualan harian pada bulan tertentu',
+                    icon: Icons.calendar_view_month_rounded,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildScaleTile(
+                    code: 'RNG',
+                    scale: AnalyticsScale.customRange,
+                    title: 'Periode Tertentu (Rentang Bulan)',
+                    subtitle: 'Menganalisis rentang bulan khusus pada tahun tertentu',
+                    icon: Icons.date_range_rounded,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 2. FORM PARAMETER WAKTU
+                  Text(
+                    '// 02 WAKTU PERIODE',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textSecondary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildTimeParameters(),
+                  const SizedBox(height: 14),
+
+                  // 3. KARTU PREVIEW INFORMASI
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceRecessed,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.cardBorderColor),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          size: 16,
+                          color: AppTheme.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _getPreviewDescription(),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11.5,
+                              height: 1.4,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 4. TOMBOL EKSEKUSI BESAR
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _controller.isLoading ? null : _handleStartAnalysis,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryDark,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _controller.isLoading
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Text('MENGANALISIS DATA...'),
+                              ],
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'BUKA DASHBOARD ANALISIS',
+                                  style: GoogleFonts.jetBrainsMono(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.arrow_forward_rounded, size: 16),
+                              ],
+                            ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -481,6 +645,7 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
   }
 
   Widget _buildScaleTile({
+    required String code,
     required AnalyticsScale scale,
     required String title,
     required String subtitle,
@@ -489,51 +654,56 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
     final isSelected = _controller.scale == scale;
     return InkWell(
       onTap: () => _controller.setScale(scale),
-      borderRadius: BorderRadius.circular(16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(14),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? Colors.white : AppTheme.surfaceRecessed,
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
-            width: isSelected ? 1.8 : 1,
+            color: isSelected ? AppTheme.primaryDark : AppTheme.cardBorderColor,
+            width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF2563EB) : Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                color: isSelected ? AppTheme.primaryDark : Colors.white,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: isSelected ? AppTheme.primaryDark : AppTheme.cardBorderColor,
+                ),
               ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : const Color(0xFF64748B),
-                size: 20,
+              child: Text(
+                code,
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? Colors.white : AppTheme.textPrimary,
+                ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? const Color(0xFF1D4ED8) : const Color(0xFF1E293B),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF64748B),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10.5,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -541,8 +711,8 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
             ),
             Icon(
               isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-              color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
-              size: 20,
+              color: isSelected ? AppTheme.primaryDark : AppTheme.textMuted,
+              size: 16,
             ),
           ],
         ),
@@ -554,17 +724,17 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
     switch (_controller.scale) {
       case AnalyticsScale.yearly:
         return _buildDropdownContainer(
-          label: 'Tahun Penjualan',
+          label: 'TAHUN PENJUALAN',
           child: DropdownButton<int>(
             isExpanded: true,
             value: _controller.selectedYear,
-            icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB)),
+            icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
             items: _controller.availableYears.map((yr) {
               return DropdownMenuItem<int>(
                 value: yr,
                 child: Text(
                   'Tahun $yr',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               );
             }).toList(),
@@ -580,18 +750,18 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
             Expanded(
               flex: 3,
               child: _buildDropdownContainer(
-                label: 'Bulan',
+                label: 'BULAN',
                 child: DropdownButton<int>(
                   isExpanded: true,
                   value: _controller.selectedMonth,
-                  icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB)),
+                  icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
                   items: List.generate(12, (i) {
                     final m = i + 1;
                     return DropdownMenuItem<int>(
                       value: m,
                       child: Text(
                         _monthNames[i],
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                     );
                   }),
@@ -601,21 +771,21 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               flex: 2,
               child: _buildDropdownContainer(
-                label: 'Tahun',
+                label: 'TAHUN',
                 child: DropdownButton<int>(
                   isExpanded: true,
                   value: _controller.selectedYear,
-                  icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB)),
+                  icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
                   items: _controller.availableYears.map((yr) {
                     return DropdownMenuItem<int>(
                       value: yr,
                       child: Text(
                         '$yr',
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                     );
                   }).toList(),
@@ -632,17 +802,17 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
         return Column(
           children: [
             _buildDropdownContainer(
-              label: 'Tahun',
+              label: 'TAHUN',
               child: DropdownButton<int>(
                 isExpanded: true,
                 value: _controller.selectedYear,
-                icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB)),
+                icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
                 items: _controller.availableYears.map((yr) {
                   return DropdownMenuItem<int>(
                     value: yr,
                     child: Text(
                       'Tahun $yr',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      style: GoogleFonts.jetBrainsMono(fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                   );
                 }).toList(),
@@ -651,23 +821,23 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
                 },
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: _buildDropdownContainer(
-                    label: 'Dari Bulan',
+                    label: 'DARI BULAN',
                     child: DropdownButton<int>(
                       isExpanded: true,
                       value: _controller.startMonth,
-                      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB)),
+                      icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
                       items: List.generate(12, (i) {
                         final m = i + 1;
                         return DropdownMenuItem<int>(
                           value: m,
                           child: Text(
                             _monthNames[i],
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 12.5),
                           ),
                         );
                       }),
@@ -679,21 +849,21 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: _buildDropdownContainer(
-                    label: 'Sampai Bulan',
+                    label: 'SAMPAI BULAN',
                     child: DropdownButton<int>(
                       isExpanded: true,
                       value: _controller.endMonth,
-                      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF2563EB)),
+                      icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary),
                       items: List.generate(12, (i) {
                         final m = i + 1;
                         return DropdownMenuItem<int>(
                           value: m,
                           child: Text(
                             _monthNames[i],
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 12.5),
                           ),
                         );
                       }),
@@ -721,19 +891,20 @@ class _SalesAnalyticsViewState extends State<SalesAnalyticsView> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF64748B),
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textSecondary,
+            letterSpacing: 0.5,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            color: AppTheme.surfaceRecessed,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppTheme.cardBorderColor),
           ),
           child: DropdownButtonHideUnderline(child: child),
         ),

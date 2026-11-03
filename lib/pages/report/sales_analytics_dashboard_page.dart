@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../models/sales_analytics_model.dart';
 import '../../services/sales_insight_engine.dart';
 import '../../services/sales_analytics_export_service.dart';
+import '../../controllers/tablet_mode_controller.dart';
 import '../../utils/currency_format.dart';
+import '../../config/app_theme.dart';
 import 'widgets/sales_chart_widget.dart';
 
 class SalesAnalyticsDashboardPage extends StatefulWidget {
@@ -36,55 +40,453 @@ class _SalesAnalyticsDashboardPageState
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = context.watch<TabletModeController>().isTabletLayout(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text(
-          'Dashboard Analitik Penjualan',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
         elevation: 0,
-        centerTitle: false,
+        backgroundColor: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: AppTheme.cardBorderColor, height: 1),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Row(
+          children: [
+            Text(
+              'Dashboard Analitik',
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                color: AppTheme.textPrimary,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceRecessed,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AppTheme.cardBorderColor),
+              ),
+              child: Text(
+                isTablet ? 'TABLET-POS' : 'SALES-INTEL',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textSecondary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.file_download_rounded),
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceRecessed,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppTheme.cardBorderColor),
+              ),
+              child: const Icon(
+                Icons.file_download_rounded,
+                size: 16,
+                color: AppTheme.textPrimary,
+              ),
+            ),
             tooltip: 'Ekspor Hasil Analisis (PDF / Excel / PPT)',
             onPressed: () =>
                 SalesAnalyticsExportService.showExportModal(context, widget.summary),
           ),
+          const SizedBox(width: 12),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        physics: const BouncingScrollPhysics(),
+      body: isTablet
+          ? _buildTabletDashboardLayout()
+          : SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. HERO PERIODE BANNER
+                  _buildHeroBanner(),
+                  const SizedBox(height: 12),
+
+                  // BAR EKSPOR CEPAT (PDF, EXCEL, PPT)
+                  _buildQuickExportBar(),
+                  const SizedBox(height: 14),
+
+                  // 2. KARTU INSIGHT BERBASIS ALGORITMA CERDAS
+                  _buildAlgorithmicInsightsCard(),
+                  const SizedBox(height: 14),
+
+                  // 3. 4 KARTU KPI METRIK UTAMA
+                  _buildKpiMetricsGrid(),
+                  const SizedBox(height: 14),
+
+                  // 4. BAGIAN GRAFIK (DIAGRAM BATANG & GARIS)
+                  _buildChartSection(),
+                  const SizedBox(height: 14),
+
+                  // 5. DETAIL RINCIAN & PRODUK TERLARIS (TABBED)
+                  _buildDetailsTabSection(),
+                  const SizedBox(height: 30),
+                ],
+              ),
+            ),
+    );
+  }
+
+  // =========================================================================
+  // TABLET HORIZONTAL LAYOUT
+  // =========================================================================
+  Widget _buildTabletDashboardLayout() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. WIDESCREEN HERO BANNER
+          _buildTabletHeroBanner(),
+          const SizedBox(height: 14),
+
+          // 2. 4-COLUMN ROW KPI METRICS
+          _buildTabletKpiMetricsRow(),
+          const SizedBox(height: 16),
+
+          // 3. MAIN DUAL-PANE (58% GRAFIK + 42% INSIGHT & EKSPOR)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // LEFT PANE: Grafik Visual & Tabel Rincian Data
+              Expanded(
+                flex: 58,
+                child: Column(
+                  children: [
+                    _buildChartSection(),
+                    const SizedBox(height: 14),
+                    _buildDetailsTabSection(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // RIGHT PANE: Algorithmic Insights & Kartu Ekspor
+              Expanded(
+                flex: 42,
+                child: Column(
+                  children: [
+                    _buildAlgorithmicInsightsCard(),
+                    const SizedBox(height: 14),
+                    _buildTabletExportCard(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabletHeroBanner() {
+    String scaleBadge;
+    switch (widget.summary.scale) {
+      case AnalyticsScale.yearly:
+        scaleBadge = 'Skala 1 Tahun';
+        break;
+      case AnalyticsScale.monthly:
+        scaleBadge = 'Skala 1 Bulan';
+        break;
+      case AnalyticsScale.customRange:
+        scaleBadge = 'Skala Rentang';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryDark,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.leadAsphalt, width: 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                      ),
+                      child: Text(
+                        scaleBadge.toUpperCase(),
+                        style: GoogleFonts.jetBrainsMono(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${widget.summary.dataPoints.length} TITIK DATA',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: AppTheme.slateGraphite,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.summary.periodTitle,
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Quick Export Pills in Hero
+          Row(
+            children: [
+              _buildQuickExportBtn(
+                label: 'PDF',
+                icon: Icons.picture_as_pdf_outlined,
+                onTap: () async {
+                  try {
+                    final f = await SalesAnalyticsExportService.instance
+                        .exportToPdf(widget.summary);
+                    await Share.shareXFiles([XFile(f.path)], text: 'Analisis ${widget.summary.periodTitle}');
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
+                    }
+                  }
+                },
+              ),
+              const SizedBox(width: 6),
+              _buildQuickExportBtn(
+                label: 'EXCEL',
+                icon: Icons.table_chart_outlined,
+                onTap: () async {
+                  try {
+                    final f = await SalesAnalyticsExportService.instance
+                        .exportToExcel(widget.summary);
+                    await Share.shareXFiles([XFile(f.path)], text: 'Analisis Excel ${widget.summary.periodTitle}');
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
+                    }
+                  }
+                },
+              ),
+              const SizedBox(width: 6),
+              _buildQuickExportBtn(
+                label: 'PPTX',
+                icon: Icons.slideshow_outlined,
+                onTap: () async {
+                  try {
+                    final f = await SalesAnalyticsExportService.instance
+                        .exportToPptx(widget.summary);
+                    await Share.shareXFiles([XFile(f.path)], text: 'Slide Presentasi ${widget.summary.periodTitle}');
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabletKpiMetricsRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildKpiCard(
+            code: 'REVENUE',
+            title: 'Total Omset',
+            value: CurrencyFormat.convertToIdr(widget.summary.totalRevenue, 0),
+            icon: Icons.payments_outlined,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildKpiCard(
+            code: 'COUNT',
+            title: 'Total Transaksi',
+            value: '${NumberFormat('#,###').format(widget.summary.totalTransactions)}x',
+            icon: Icons.receipt_long_outlined,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildKpiCard(
+            code: 'AVERAGE',
+            title: 'Rata-rata Penjualan',
+            value: CurrencyFormat.convertToIdr(widget.summary.averageRevenue, 0),
+            icon: Icons.analytics_outlined,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildKpiCard(
+            code: 'BASKET',
+            title: 'Nilai Belanja (AOV)',
+            value: CurrencyFormat.convertToIdr(_insights.averageOrderValue, 0),
+            icon: Icons.shopping_basket_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabletExportCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBorderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AppTheme.cardBorderColor),
+                ),
+                child: const Icon(Icons.output_rounded, size: 14, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Ekspor Laporan Analitik',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Format terstruktur dengan visual diagram batang & garis siap cetak/presentasikan.',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTabletExportAction(
+                  format: 'PDF',
+                  desc: 'Executive Brief',
+                  icon: Icons.picture_as_pdf_outlined,
+                  onTap: () async {
+                    final f = await SalesAnalyticsExportService.instance.exportToPdf(widget.summary);
+                    await Share.shareXFiles([XFile(f.path)], text: 'Analisis PDF ${widget.summary.periodTitle}');
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildTabletExportAction(
+                  format: 'EXCEL',
+                  desc: 'Buku Keuangan',
+                  icon: Icons.table_chart_outlined,
+                  onTap: () async {
+                    final f = await SalesAnalyticsExportService.instance.exportToExcel(widget.summary);
+                    await Share.shareXFiles([XFile(f.path)], text: 'Analisis Excel ${widget.summary.periodTitle}');
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildTabletExportAction(
+                  format: 'PPTX',
+                  desc: 'Slide Presentasi',
+                  icon: Icons.slideshow_outlined,
+                  onTap: () async {
+                    final f = await SalesAnalyticsExportService.instance.exportToPptx(widget.summary);
+                    await Share.shareXFiles([XFile(f.path)], text: 'Presentasi ${widget.summary.periodTitle}');
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabletExportAction({
+    required String format,
+    required String desc,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceRecessed,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.cardBorderColor),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. HERO PERIODE BANNER
-            _buildHeroBanner(),
-            const SizedBox(height: 14),
-
-            // BAR EKSPOR CEPAT (PDF, EXCEL, PPT)
-            _buildQuickExportBar(),
-            const SizedBox(height: 18),
-
-            // 2. KARTU INSIGHT BERBASIS ALGORITMA CERDAS
-            _buildAlgorithmicInsightsCard(),
-            const SizedBox(height: 18),
-
-            // 3. 4 KARTU KPI METRIK UTAMA
-            _buildKpiMetricsGrid(),
-            const SizedBox(height: 22),
-
-            // 4. BAGIAN GRAFIK (DIAGRAM BATANG & GARIS)
-            _buildChartSection(),
-            const SizedBox(height: 22),
-
-            // 5. DETAIL RINCIAN & PRODUK TERLARIS (TABBED)
-            _buildDetailsTabSection(),
-            const SizedBox(height: 30),
+            Icon(icon, size: 18, color: AppTheme.textPrimary),
+            const SizedBox(height: 5),
+            Text(
+              format,
+              style: GoogleFonts.jetBrainsMono(
+                fontWeight: FontWeight.w800,
+                fontSize: 11.5,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              desc,
+              style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppTheme.textSecondary),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
@@ -92,38 +494,28 @@ class _SalesAnalyticsDashboardPageState
   }
 
   // =========================================================================
-  // 1. HERO PERIODE BANNER
+  // 1. HERO PERIODE BANNER (MOBILE)
   // =========================================================================
   Widget _buildHeroBanner() {
     String scaleBadge;
     switch (widget.summary.scale) {
       case AnalyticsScale.yearly:
-        scaleBadge = 'Skala 1 Tahun Penuh';
+        scaleBadge = 'Skala 1 Tahun';
         break;
       case AnalyticsScale.monthly:
-        scaleBadge = 'Skala 1 Bulan Penuh';
+        scaleBadge = 'Skala 1 Bulan';
         break;
       case AnalyticsScale.customRange:
-        scaleBadge = 'Skala Rentang Periode';
+        scaleBadge = 'Skala Rentang';
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.15),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        color: AppTheme.primaryDark,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.leadAsphalt, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,56 +524,48 @@ class _SalesAnalyticsDashboardPageState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
-                  ),
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.query_stats_rounded,
-                      size: 14,
-                      color: Color(0xFF38BDF8),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      scaleBadge,
-                      style: const TextStyle(
-                        color: Color(0xFF38BDF8),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  scaleBadge.toUpperCase(),
+                  style: GoogleFonts.jetBrainsMono(
+                    color: Colors.white,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
               Text(
-                '${widget.summary.dataPoints.length} Titik Waktu',
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                '${widget.summary.dataPoints.length} TITIK DATA',
+                style: GoogleFonts.jetBrainsMono(
+                  color: AppTheme.slateGraphite,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             widget.summary.periodTitle,
-            style: const TextStyle(
+            style: GoogleFonts.plusJakartaSans(
               color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
           Text(
-            'Laporan analitik terintegrasi data penjualan offline & transaksi kasir.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 13,
+            'Laporan analitik terintegrasi data transaksi kasir POS offline.',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.slateGraphite,
+              fontSize: 11.5,
             ),
           ),
         ],
@@ -194,91 +578,70 @@ class _SalesAnalyticsDashboardPageState
   // =========================================================================
   Widget _buildQuickExportBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBorderColor),
       ),
       child: Row(
         children: [
-          const Icon(Icons.file_download_outlined, size: 20, color: Color(0xFF475569)),
-          const SizedBox(width: 8),
-          const Text(
-            'Ekspor:',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF475569),
+          Text(
+            'EKSPOR:',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textSecondary,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _buildQuickExportBtn(
-                  label: 'PDF',
-                  icon: Icons.picture_as_pdf_rounded,
-                  color: const Color(0xFFDC2626),
-                  bgColor: const Color(0xFFFEF2F2),
-                  onTap: () async {
-                    try {
-                      final f = await SalesAnalyticsExportService.instance
-                          .exportToPdf(widget.summary);
-                      await Share.shareXFiles([XFile(f.path)], text: 'Analisis ${widget.summary.periodTitle}');
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
-                      }
-                    }
-                  },
-                ),
-                const SizedBox(width: 6),
-                _buildQuickExportBtn(
-                  label: 'Excel',
-                  icon: Icons.table_chart_rounded,
-                  color: const Color(0xFF059669),
-                  bgColor: const Color(0xFFECFDF5),
-                  onTap: () async {
-                    try {
-                      final f = await SalesAnalyticsExportService.instance
-                          .exportToExcel(widget.summary);
-                      await Share.shareXFiles([XFile(f.path)], text: 'Analisis ${widget.summary.periodTitle}');
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
-                      }
-                    }
-                  },
-                ),
-                const SizedBox(width: 6),
-                _buildQuickExportBtn(
-                  label: 'PPT',
-                  icon: Icons.slideshow_rounded,
-                  color: const Color(0xFFEA580C),
-                  bgColor: const Color(0xFFFFF7ED),
-                  onTap: () async {
-                    try {
-                      final f = await SalesAnalyticsExportService.instance
-                          .exportToPptx(widget.summary);
-                      await Share.shareXFiles([XFile(f.path)], text: 'Analisis ${widget.summary.periodTitle}');
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
-                      }
-                    }
-                  },
-                ),
-              ],
-            ),
+          const Spacer(),
+          _buildQuickExportBtn(
+            label: 'PDF',
+            icon: Icons.picture_as_pdf_outlined,
+            onTap: () async {
+              try {
+                final f = await SalesAnalyticsExportService.instance
+                    .exportToPdf(widget.summary);
+                await Share.shareXFiles([XFile(f.path)], text: 'Analisis ${widget.summary.periodTitle}');
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
+                }
+              }
+            },
+          ),
+          const SizedBox(width: 6),
+          _buildQuickExportBtn(
+            label: 'EXCEL',
+            icon: Icons.table_chart_outlined,
+            onTap: () async {
+              try {
+                final f = await SalesAnalyticsExportService.instance
+                    .exportToExcel(widget.summary);
+                await Share.shareXFiles([XFile(f.path)], text: 'Analisis ${widget.summary.periodTitle}');
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
+                }
+              }
+            },
+          ),
+          const SizedBox(width: 6),
+          _buildQuickExportBtn(
+            label: 'PPTX',
+            icon: Icons.slideshow_outlined,
+            onTap: () async {
+              try {
+                final f = await SalesAnalyticsExportService.instance
+                    .exportToPptx(widget.summary);
+                await Share.shareXFiles([XFile(f.path)], text: 'Analisis ${widget.summary.periodTitle}');
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal export: $e')));
+                }
+              }
+            },
           ),
         ],
       ),
@@ -288,31 +651,29 @@ class _SalesAnalyticsDashboardPageState
   Widget _buildQuickExportBtn({
     required String label,
     required IconData icon,
-    required Color color,
-    required Color bgColor,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          color: AppTheme.surfaceRecessed,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppTheme.cardBorderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: color),
+            Icon(icon, size: 13, color: AppTheme.textPrimary),
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-                color: color,
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
               ),
             ),
           ],
@@ -320,154 +681,142 @@ class _SalesAnalyticsDashboardPageState
       ),
     );
   }
+
   Widget _buildAlgorithmicInsightsCard() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBorderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Insight
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(9),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.cardBorderColor),
                 ),
                 child: const Icon(
-                  Icons.auto_graph_rounded,
-                  color: Color(0xFF4F46E5),
-                  size: 22,
+                  Icons.insights_rounded,
+                  color: AppTheme.textPrimary,
+                  size: 16,
                 ),
               ),
-              const SizedBox(width: 12),
-              const Expanded(
+              const SizedBox(width: 10),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Rangkuman & Intelijen Bisnis',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                      'Rangkuman Intelijen Bisnis',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                     Text(
-                      'Kalkulasi statistik dan evaluasi performa tren penjualan',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      'Analisis statistik tren dan stabilitas performa',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Badges Status Tren & Stabilitas
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               _buildBadge(
-                label: 'Tren: ${_insights.trendStatus}',
-                icon: _insights.growthRatePercent >= 0
-                    ? Icons.trending_up_rounded
-                    : Icons.trending_down_rounded,
-                color: _insights.growthRatePercent >= 0
-                    ? const Color(0xFF059669)
-                    : const Color(0xFFDC2626),
-                bgColor: _insights.growthRatePercent >= 0
-                    ? const Color(0xFFECFDF5)
-                    : const Color(0xFFFEF2F2),
+                label: 'TREN: ${_insights.trendStatus.toUpperCase()}',
+                dotColor: _insights.growthRatePercent >= 0
+                    ? AppTheme.forestGreen
+                    : AppTheme.stampRed,
               ),
               _buildBadge(
-                label: 'Stabilitas: ${_insights.stabilityLevel}',
-                icon: Icons.speed_rounded,
-                color: const Color(0xFF7C3AED),
-                bgColor: const Color(0xFFF5F3FF),
+                label: 'STABILITAS: ${_insights.stabilityLevel.toUpperCase()}',
+                dotColor: AppTheme.leadAsphalt,
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
           // Narasi Rangkuman Eksekutif
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppTheme.cardBorderColor),
             ),
             child: Text(
               _insights.executiveSummary,
-              style: const TextStyle(
-                fontSize: 13.5,
-                height: 1.55,
-                color: Color(0xFF334155),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                height: 1.45,
+                color: AppTheme.textPrimary,
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Temuan Kunci (Key Findings)
-          const Text(
-            'Temuan Kunci Data',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF475569),
+          Text(
+            'TEMUAN KUNCI DATA',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textSecondary,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           ..._insights.keyFindings.map((finding) => _buildFindingTile(finding)),
-          const SizedBox(height: 16),
 
           // Rekomendasi Taktis
           if (_insights.strategicRecommendations.isNotEmpty) ...[
-            const Text(
-              'Rekomendasi Tindakan Strategis',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF475569),
+            const SizedBox(height: 10),
+            Text(
+              'REKOMENDASI TINDAKAN',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textSecondary,
+                letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             ..._insights.strategicRecommendations.map(
               (rec) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.only(bottom: 5),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Padding(
-                      padding: EdgeInsets.only(top: 4, right: 8),
+                      padding: EdgeInsets.only(top: 3, right: 6),
                       child: Icon(
-                        Icons.check_circle_rounded,
-                        size: 16,
-                        color: Color(0xFF10B981),
+                        Icons.check_rounded,
+                        size: 13,
+                        color: AppTheme.forestGreen,
                       ),
                     ),
                     Expanded(
                       child: Text(
                         rec,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.4,
-                          color: Color(0xFF334155),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          height: 1.35,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -483,27 +832,33 @@ class _SalesAnalyticsDashboardPageState
 
   Widget _buildBadge({
     required String label,
-    required IconData icon,
-    required Color color,
-    required Color bgColor,
+    required Color dotColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(10),
+        color: AppTheme.surfaceRecessed,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppTheme.cardBorderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+            ),
+          ),
           const SizedBox(width: 5),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.bold,
-              color: color,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
             ),
           ),
         ],
@@ -512,65 +867,39 @@ class _SalesAnalyticsDashboardPageState
   }
 
   Widget _buildFindingTile(InsightFinding finding) {
-    Color iconColor;
-    Color iconBg;
-    IconData icon;
-
-    switch (finding.type) {
-      case 'positive':
-        iconColor = const Color(0xFF059669);
-        iconBg = const Color(0xFFECFDF5);
-        icon = Icons.trending_up_rounded;
-        break;
-      case 'warning':
-        iconColor = const Color(0xFFD97706);
-        iconBg = const Color(0xFFFFFBEB);
-        icon = Icons.warning_amber_rounded;
-        break;
-      case 'highlight':
-        iconColor = const Color(0xFF2563EB);
-        iconBg = const Color(0xFFEFF6FF);
-        icon = Icons.star_rounded;
-        break;
-      default:
-        iconColor = const Color(0xFF64748B);
-        iconBg = const Color(0xFFF1F5F9);
-        icon = Icons.info_outline_rounded;
-        break;
-    }
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(8),
+            margin: const EdgeInsets.only(top: 5),
+            width: 4,
+            height: 4,
+            decoration: const BoxDecoration(
+              color: AppTheme.leadAsphalt,
+              shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: iconColor, size: 15),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   finding.title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
                 Text(
                   finding.description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    color: Color(0xFF64748B),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    height: 1.3,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ],
@@ -591,45 +920,41 @@ class _SalesAnalyticsDashboardPageState
           children: [
             Expanded(
               child: _buildKpiCard(
+                code: 'REV',
                 title: 'Total Omset',
                 value: CurrencyFormat.convertToIdr(widget.summary.totalRevenue, 0),
-                icon: Icons.payments_rounded,
-                color: const Color(0xFF059669),
-                bgColor: const Color(0xFFECFDF5),
+                icon: Icons.payments_outlined,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: _buildKpiCard(
+                code: 'TRX',
                 title: 'Total Transaksi',
                 value: '${NumberFormat('#,###').format(widget.summary.totalTransactions)}x',
-                icon: Icons.receipt_long_rounded,
-                color: const Color(0xFF2563EB),
-                bgColor: const Color(0xFFEFF6FF),
+                icon: Icons.receipt_long_outlined,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: _buildKpiCard(
+                code: 'AVG',
                 title: 'Rata-rata Penjualan',
                 value: CurrencyFormat.convertToIdr(widget.summary.averageRevenue, 0),
-                icon: Icons.functions_rounded,
-                color: const Color(0xFF7C3AED),
-                bgColor: const Color(0xFFF5F3FF),
+                icon: Icons.analytics_outlined,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: _buildKpiCard(
+                code: 'AOV',
                 title: 'Nilai Belanja (AOV)',
                 value: CurrencyFormat.convertToIdr(_insights.averageOrderValue, 0),
-                icon: Icons.shopping_basket_rounded,
-                color: const Color(0xFFD97706),
-                bgColor: const Color(0xFFFFFBEB),
+                icon: Icons.shopping_basket_outlined,
               ),
             ),
           ],
@@ -639,60 +964,61 @@ class _SalesAnalyticsDashboardPageState
   }
 
   Widget _buildKpiCard({
+    required String code,
     required String title,
     required String value,
     required IconData icon,
-    required Color color,
-    required Color bgColor,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBorderColor, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(7),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                 decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: AppTheme.cardBorderColor),
                 ),
-                child: Icon(icon, color: color, size: 18),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
                 child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
+                  code,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 8.5,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w700,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              Icon(icon, color: AppTheme.textMuted, size: 14),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
+              letterSpacing: -0.3,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -707,18 +1033,11 @@ class _SalesAnalyticsDashboardPageState
   // =========================================================================
   Widget _buildChartSection() {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBorderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -726,40 +1045,43 @@ class _SalesAnalyticsDashboardPageState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Visualisasi Grafik Penjualan',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                   Text(
-                    'Sentuh grafik untuk melihat detail nominal',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    'Sentuh grafik untuk melihat nominal',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppTheme.textMuted),
                   ),
                 ],
               ),
               // Segmented Switcher Batang vs Garis
               Container(
-                padding: const EdgeInsets.all(3),
+                padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.cardBorderColor),
                 ),
                 child: Row(
                   children: [
-                    _buildChartToggleBtn('bar', 'Batang', Icons.bar_chart_rounded),
-                    _buildChartToggleBtn('line', 'Garis', Icons.show_chart_rounded),
+                    _buildChartToggleBtn('bar', 'BATANG', Icons.bar_chart_rounded),
+                    _buildChartToggleBtn('line', 'GARIS', Icons.show_chart_rounded),
                   ],
                 ),
               ),
             ],
           ),
-          const Divider(height: 24),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: AppTheme.cardBorderColor),
+          const SizedBox(height: 12),
 
           // Render chart widget
           SalesChartWidget(
@@ -779,36 +1101,27 @@ class _SalesAnalyticsDashboardPageState
           _activeChartType = type;
         });
       },
-      borderRadius: BorderRadius.circular(9),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(9),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          color: isSelected ? AppTheme.primaryDark : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              size: 16,
-              color: isSelected ? const Color(0xFF1E88E5) : const Color(0xFF64748B),
+              size: 13,
+              color: isSelected ? Colors.white : AppTheme.textSecondary,
             ),
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? const Color(0xFF1E88E5) : const Color(0xFF64748B),
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? Colors.white : AppTheme.textSecondary,
               ),
             ),
           ],
@@ -824,30 +1137,23 @@ class _SalesAnalyticsDashboardPageState
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBorderColor),
       ),
       child: Column(
         children: [
           // Tab Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
             child: Row(
               children: [
-                _buildSubTabHeader(0, 'Rincian Angka Penjualan', Icons.table_chart_rounded),
-                const SizedBox(width: 10),
-                _buildSubTabHeader(1, 'Top Produk Terlaris', Icons.local_fire_department_rounded),
+                _buildSubTabHeader(0, 'RINCIAN PENJUALAN', Icons.table_chart_outlined),
+                const SizedBox(width: 6),
+                _buildSubTabHeader(1, 'TOP PRODUK', Icons.leaderboard_outlined),
               ],
             ),
           ),
-          const Divider(height: 1),
+          const Divider(height: 1, color: AppTheme.cardBorderColor),
 
           // Tab Content
           if (_bottomTab == 0)
@@ -867,30 +1173,30 @@ class _SalesAnalyticsDashboardPageState
           _bottomTab = index;
         });
       },
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: isSelected ? AppTheme.primaryDark : AppTheme.surfaceRecessed,
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? const Color(0xFF93C5FD) : Colors.transparent,
+            color: isSelected ? AppTheme.primaryDark : AppTheme.cardBorderColor,
           ),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              size: 16,
-              color: isSelected ? const Color(0xFF1D4ED8) : const Color(0xFF64748B),
+              size: 13,
+              color: isSelected ? Colors.white : AppTheme.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? const Color(0xFF1D4ED8) : const Color(0xFF64748B),
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? Colors.white : AppTheme.textSecondary,
               ),
             ),
           ],
@@ -902,9 +1208,12 @@ class _SalesAnalyticsDashboardPageState
   Widget _buildBreakdownContent() {
     final points = widget.summary.dataPoints;
     if (points.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Text('Tidak ada data rincian.', style: TextStyle(color: Colors.grey)),
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'Tidak ada data rincian.',
+          style: GoogleFonts.plusJakartaSans(color: AppTheme.textMuted, fontSize: 12),
+        ),
       );
     }
 
@@ -912,56 +1221,56 @@ class _SalesAnalyticsDashboardPageState
       children: [
         // Column Header
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: const Color(0xFFF8FAFC),
-          child: const Row(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          color: AppTheme.surfaceRecessed,
+          child: Row(
             children: [
               Expanded(
                 flex: 4,
                 child: Text(
-                  'Periode',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: Color(0xFF475569),
+                  'PERIODE',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ),
               Expanded(
                 flex: 2,
                 child: Text(
-                  'Transaksi',
+                  'TRANSAKSI',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: Color(0xFF475569),
+                  style: GoogleFonts.jetBrainsMono(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ),
               Expanded(
                 flex: 4,
                 child: Text(
-                  'Total Omset',
+                  'TOTAL OMSET',
                   textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: Color(0xFF475569),
+                  style: GoogleFonts.jetBrainsMono(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                    color: AppTheme.textSecondary,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const Divider(height: 1),
+        const Divider(height: 1, color: AppTheme.cardBorderColor),
 
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: points.length,
           separatorBuilder: (context, index) =>
-              Divider(height: 1, color: Colors.grey.shade100),
+              const Divider(height: 1, color: AppTheme.cardBorderColor),
           itemBuilder: (context, idx) {
             final p = points[idx];
             final isHighest = widget.summary.highestPoint != null &&
@@ -969,8 +1278,8 @@ class _SalesAnalyticsDashboardPageState
                 p.totalAmount > 0;
 
             return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-              color: isHighest ? const Color(0xFFFFFBEB) : Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              color: isHighest ? AppTheme.rawBrass.withValues(alpha: 0.08) : Colors.transparent,
               child: Row(
                 children: [
                   Expanded(
@@ -982,17 +1291,17 @@ class _SalesAnalyticsDashboardPageState
                             padding: EdgeInsets.only(right: 6),
                             child: Icon(
                               Icons.star_rounded,
-                              size: 16,
-                              color: Color(0xFFF59E0B),
+                              size: 14,
+                              color: AppTheme.rawBrass,
                             ),
                           ),
                         Expanded(
                           child: Text(
                             p.fullLabel,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: isHighest ? FontWeight.bold : FontWeight.w500,
-                              color: const Color(0xFF334155),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5,
+                              fontWeight: isHighest ? FontWeight.w800 : FontWeight.w600,
+                              color: AppTheme.textPrimary,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1005,11 +1314,11 @@ class _SalesAnalyticsDashboardPageState
                     child: Text(
                       '${p.transactionCount}x',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 12,
                         color: p.transactionCount > 0
-                            ? const Color(0xFF0F172A)
-                            : Colors.grey.shade400,
+                            ? AppTheme.textPrimary
+                            : AppTheme.textMuted,
                       ),
                     ),
                   ),
@@ -1018,12 +1327,13 @@ class _SalesAnalyticsDashboardPageState
                     child: Text(
                       CurrencyFormat.convertToIdr(p.totalAmount, 0),
                       textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
                         color: p.totalAmount > 0
-                            ? (isHighest ? const Color(0xFFB45309) : const Color(0xFF0F172A))
-                            : Colors.grey.shade400,
+                            ? (isHighest ? AppTheme.rawBrass : AppTheme.textPrimary)
+                            : AppTheme.textMuted,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ),
@@ -1039,17 +1349,17 @@ class _SalesAnalyticsDashboardPageState
   Widget _buildTopProductsContent() {
     final items = widget.summary.topProducts;
     if (items.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
+      return Padding(
+        padding: const EdgeInsets.all(24),
         child: Text(
           'Belum ada data barang terjual pada periode ini.',
-          style: TextStyle(color: Colors.grey),
+          style: GoogleFonts.plusJakartaSans(color: AppTheme.textMuted, fontSize: 12),
         ),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Column(
         children: items.take(7).map((item) {
           final idx = items.indexOf(item) + 1;
@@ -1057,54 +1367,56 @@ class _SalesAnalyticsDashboardPageState
           final qty = item['total_qty'] ?? 0;
 
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
               children: [
                 Container(
-                  width: 26,
-                  height: 26,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: idx == 1
-                        ? const Color(0xFFFEF3C7)
-                        : (idx == 2 ? const Color(0xFFF1F5F9) : const Color(0xFFFFF7ED)),
-                    shape: BoxShape.circle,
+                        ? AppTheme.primaryDark
+                        : AppTheme.surfaceRecessed,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: idx == 1 ? AppTheme.primaryDark : AppTheme.cardBorderColor,
+                    ),
                   ),
                   child: Center(
                     child: Text(
                       '$idx',
-                      style: TextStyle(
-                        color: idx == 1
-                            ? const Color(0xFFB45309)
-                            : (idx == 2 ? const Color(0xFF475569) : const Color(0xFFC2410C)),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: idx == 1 ? Colors.white : AppTheme.textPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     name,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF1E293B),
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppTheme.surfaceRecessed,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.cardBorderColor),
                   ),
                   child: Text(
                     '$qty pcs',
-                    style: const TextStyle(
-                      color: Color(0xFF2563EB),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                    style: GoogleFonts.jetBrainsMono(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
                     ),
                   ),
                 ),
@@ -1116,4 +1428,3 @@ class _SalesAnalyticsDashboardPageState
     );
   }
 }
-

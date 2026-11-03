@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/scanner_view.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../controllers/add_product_controller.dart';
+import '../../controllers/tablet_mode_controller.dart';
 import '../../models/product_model.dart';
 import '../../services/pdf_service.dart';
 import '../../services/security_service.dart';
@@ -16,10 +18,10 @@ class AddProductPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AddProductController(),
-      child: Scaffold(
+      child: const Scaffold(
         backgroundColor: AppTheme.backgroundColor,
-        appBar: const _AppBar(),
-        body: const _Body(),
+        appBar: _AppBar(),
+        body: _Body(),
       ),
     );
   }
@@ -32,40 +34,72 @@ class _AppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: const Text(
-        "Input Barang Baru",
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 17,
-          color: AppTheme.textPrimary,
-          letterSpacing: -0.2,
-        ),
+      elevation: 0,
+      backgroundColor: Colors.white,
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(color: AppTheme.cardBorderColor, height: 1),
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      title: Row(
+        children: [
+          Text(
+            "Input Barang Baru",
+            style: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: AppTheme.textPrimary,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AppTheme.cardBorderColor),
+            ),
+            child: Text(
+              "SKU-ENTRY",
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textSecondary,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ],
       ),
       actions: [
         IconButton(
           icon: Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(8),
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: AppTheme.cardBorderColor),
             ),
             child: const Icon(
               Icons.search_rounded,
-              size: 18,
+              size: 16,
               color: AppTheme.textPrimary,
             ),
           ),
           tooltip: "Cari data lama",
           onPressed: () => _showSearchSheet(context),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
       ],
     );
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
 }
 
 /* ================= BODY ================= */
@@ -74,26 +108,134 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = context.watch<TabletModeController>().isTabletLayout(context);
+
     return Consumer<AddProductController>(
       builder: (_, controller, _) {
+        if (isTablet) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ScannerSection(controller: controller),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.cardBorderColor),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.surfaceRecessed,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: AppTheme.cardBorderColor),
+                                  ),
+                                  child: const Icon(
+                                    Icons.qr_code_2_rounded,
+                                    size: 18,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Label & Barcode Produk",
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12.5,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        "Format kompatibel POS & thermal",
+                                        style: GoogleFonts.jetBrainsMono(
+                                          fontSize: 10,
+                                          color: AppTheme.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Divider(height: 1, color: AppTheme.cardBorderColor),
+                            const SizedBox(height: 12),
+                            Text(
+                              "• Jika produk memiliki barcode fisik pada kemasan, scan kamera atau gunakan barcode reader scanner USB/Bluetooth.\n• Jika produk tidak memiliki barcode, sistem akan membuatkan kode QR terenkripsi secara otomatis saat disimpan.",
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                color: AppTheme.textSecondary,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  flex: 6,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.cardBorderColor, width: 1),
+                        ),
+                        child: _FormSection(controller: controller),
+                      ),
+                      const SizedBox(height: 16),
+                      _SaveButton(controller: controller),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ScannerSection(controller: controller),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.cardBorderColor, width: 1),
                 ),
                 child: _FormSection(controller: controller),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               _SaveButton(controller: controller),
             ],
           ),
@@ -113,60 +255,76 @@ class _ScannerSection extends StatelessWidget {
     final hasCode = controller.scannedBarcode != null;
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: () {
           HapticFeedback.lightImpact();
           _openScanner(context, controller);
         },
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: hasCode ? AppTheme.successColor : AppTheme.cardBorderColor,
-              width: hasCode ? 1.5 : 1,
+              color: hasCode ? AppTheme.stampRed : AppTheme.cardBorderColor,
+              width: hasCode ? 1.2 : 1,
             ),
           ),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: hasCode
-                      ? AppTheme.successColor.withValues(alpha: 0.1)
-                      : AppTheme.primaryColor.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
+                      ? AppTheme.stampRed.withValues(alpha: 0.08)
+                      : AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: hasCode ? AppTheme.stampRed.withValues(alpha: 0.3) : AppTheme.cardBorderColor,
+                  ),
                 ),
                 child: Icon(
                   hasCode ? Icons.qr_code_2_rounded : Icons.qr_code_scanner_rounded,
-                  color: hasCode ? AppTheme.successColor : AppTheme.primaryColor,
-                  size: 22,
+                  color: hasCode ? AppTheme.stampRed : AppTheme.textPrimary,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: hasCode
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            "Barcode Terdeteksi",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.successColor,
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppTheme.stampRed,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                "BARCODE TERDETEKSI",
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.stampRed,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             controller.scannedBarcode!,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontFamily: 'monospace',
-                              fontSize: 14,
+                            style: GoogleFonts.jetBrainsMono(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
                               color: AppTheme.textPrimary,
                             ),
                           ),
@@ -174,21 +332,21 @@ class _ScannerSection extends StatelessWidget {
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             "Scan Barcode Barang",
-                            style: TextStyle(
+                            style: GoogleFonts.plusJakartaSans(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
                               color: AppTheme.textPrimary,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            "Ketuk untuk scan kamera (opsional)",
-                            style: TextStyle(
+                            "Ketuk untuk buka kamera pemindai (opsional)",
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
-                              color: AppTheme.textSecondary,
+                              color: AppTheme.textMuted,
                             ),
                           ),
                         ],
@@ -201,13 +359,24 @@ class _ScannerSection extends StatelessWidget {
                     controller.resetScan();
                   },
                   icon: const Icon(Icons.close_rounded, size: 18),
-                  color: AppTheme.errorColor,
+                  color: AppTheme.stampRed,
                 )
               else
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: AppTheme.textMuted,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceRecessed,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.cardBorderColor),
+                  ),
+                  child: Text(
+                    "SCAN →",
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -227,27 +396,52 @@ class _FormSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          children: [
+            Container(
+              width: 3,
+              height: 12,
+              decoration: BoxDecoration(
+                color: AppTheme.textPrimary,
+                borderRadius: BorderRadius.circular(1.5),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              "DETAIL PRODUK",
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
         _InputField(
-          label: "Nama Barang",
+          label: "NAMA BARANG",
           hint: "Contoh: Kuota Telkomsel 10GB",
           controller: controller.nameController,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         _InputField(
-          label: "Harga Jual (Rp)",
-          hint: "Contoh: 35000",
+          label: "HARGA JUAL (RP)",
+          hint: "0",
           controller: controller.priceController,
           keyboardType: TextInputType.number,
+          isNumeric: true,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         _InputField(
-          label: "Stok Awal",
-          hint: "Contoh: 20",
+          label: "JUMLAH STOK AWAL",
+          hint: "0",
           controller: controller.stockController,
           keyboardType: TextInputType.number,
+          isNumeric: true,
           onSubmit: (_) => _handleSave(context, controller),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         _CategoryField(controller: controller),
       ],
     );
@@ -259,6 +453,7 @@ class _InputField extends StatelessWidget {
   final String? hint;
   final TextEditingController controller;
   final TextInputType? keyboardType;
+  final bool isNumeric;
   final Function(String)? onSubmit;
 
   const _InputField({
@@ -266,6 +461,7 @@ class _InputField extends StatelessWidget {
     this.hint,
     required this.controller,
     this.keyboardType,
+    this.isNumeric = false,
     this.onSubmit,
   });
 
@@ -276,27 +472,42 @@ class _InputField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: GoogleFonts.jetBrainsMono(
             fontWeight: FontWeight.w700,
-            fontSize: 12,
-            color: AppTheme.textPrimary,
+            fontSize: 10.5,
+            color: AppTheme.textSecondary,
+            letterSpacing: 0.5,
           ),
         ),
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: AppTheme.backgroundColor,
-            borderRadius: BorderRadius.circular(10),
+            color: AppTheme.surfaceRecessed,
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: AppTheme.cardBorderColor),
           ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
             onSubmitted: onSubmit,
-            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            style: isNumeric
+                ? GoogleFonts.jetBrainsMono(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  )
+                : GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              hintStyle: GoogleFonts.plusJakartaSans(
+                color: AppTheme.textMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.normal,
+              ),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -321,25 +532,31 @@ class _CategoryField extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              "Kategori Produk",
-              style: TextStyle(
+            Text(
+              "KATEGORI PRODUK",
+              style: GoogleFonts.jetBrainsMono(
                 fontWeight: FontWeight.w700,
-                fontSize: 12,
-                color: AppTheme.textPrimary,
+                fontSize: 10.5,
+                color: AppTheme.textSecondary,
+                letterSpacing: 0.5,
               ),
             ),
             InkWell(
               onTap: () => _showAddCategoryDialog(context, controller),
-              borderRadius: BorderRadius.circular(6),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AppTheme.cardBorderColor),
+                ),
                 child: Text(
-                  "+ Tambah Baru",
-                  style: TextStyle(
-                    fontSize: 11,
+                  "+ TAMBAH KATEGORI",
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 9.5,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.primaryColor,
+                    color: AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -350,15 +567,19 @@ class _CategoryField extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: AppTheme.backgroundColor,
-            borderRadius: BorderRadius.circular(10),
+            color: AppTheme.surfaceRecessed,
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: AppTheme.cardBorderColor),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               isExpanded: true,
               value: controller.selectedCategory,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
               items: controller.categories
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
@@ -379,22 +600,25 @@ void _showAddCategoryDialog(
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'Tambah Kategori',
-        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppTheme.cardBorderColor),
+      ),
+      title: Text(
+        'Tambah Kategori Baru',
+        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15),
       ),
       content: TextField(
         controller: textCtrl,
         autofocus: true,
-        style: const TextStyle(fontSize: 13),
+        style: GoogleFonts.plusJakartaSans(fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Nama kategori baru...',
-          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+          hintText: 'Nama kategori...',
+          hintStyle: GoogleFonts.plusJakartaSans(color: AppTheme.textMuted, fontSize: 13),
           filled: true,
-          fillColor: AppTheme.backgroundColor,
+          fillColor: AppTheme.surfaceRecessed,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             borderSide: const BorderSide(color: AppTheme.cardBorderColor),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -403,12 +627,19 @@ void _showAddCategoryDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Batal', style: TextStyle(color: AppTheme.textSecondary)),
+          child: Text(
+            'Batal',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primaryDark,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
           onPressed: () async {
             final name = textCtrl.text.trim();
@@ -417,24 +648,33 @@ void _showAddCategoryDialog(
             if (ctx.mounted) Navigator.pop(ctx);
             if (success && context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Kategori "$name" berhasil ditambahkan')),
+                SnackBar(
+                  content: Text('Kategori "$name" berhasil ditambahkan', style: GoogleFonts.plusJakartaSans()),
+                ),
               );
             } else if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Kategori sudah ada atau tidak valid'),
+                SnackBar(
+                  content: Text('Kategori sudah ada atau tidak valid', style: GoogleFonts.plusJakartaSans()),
                 ),
               );
             }
           },
-          child: const Text('Simpan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          child: Text(
+            'SIMPAN',
+            style: GoogleFonts.jetBrainsMono(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
         ),
       ],
     ),
   );
 }
 
-/* ================= SAVE ================= */
+/* ================= SAVE BUTTON ================= */
 class _SaveButton extends StatelessWidget {
   final AddProductController controller;
   const _SaveButton({required this.controller});
@@ -448,7 +688,7 @@ class _SaveButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryDark,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),
         onPressed: controller.isLoading
@@ -456,13 +696,24 @@ class _SaveButton extends StatelessWidget {
             : () => _handleSave(context, controller),
         child: controller.isLoading
             ? const SizedBox(
-                width: 20,
-                height: 20,
+                width: 18,
+                height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               )
-            : const Text(
-                "SIMPAN PRODUK",
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "SIMPAN DATA BARANG",
+                    style: GoogleFonts.jetBrainsMono(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_rounded, size: 16),
+                ],
               ),
       ),
     );
@@ -480,9 +731,14 @@ Future<void> _handleSave(
   if (controller.scannedBarcode == null) {
     _showQrDialog(context, product);
   } else {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Data produk berhasil disimpan")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Data produk '${product.name}' berhasil disimpan",
+          style: GoogleFonts.plusJakartaSans(),
+        ),
+      ),
+    );
   }
 }
 
@@ -502,70 +758,96 @@ void _showQrDialog(BuildContext context, Product product) {
   showDialog(
     context: context,
     builder: (_) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppTheme.cardBorderColor),
+      ),
       backgroundColor: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.successColor.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_rounded,
-                color: AppTheme.successColor,
-                size: 32,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "Produk Tersimpan",
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.textPrimary),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              "QR Barcode otomatis berhasil dibuat:",
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.forestGreen.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.forestGreen.withValues(alpha: 0.3)),
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: AppTheme.forestGreen,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "PRODUK TERSIMPAN",
+                        style: GoogleFonts.jetBrainsMono(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        "QR Code terenkripsi telah dibuat secara otomatis",
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppTheme.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
+                color: AppTheme.surfaceRecessed,
                 border: Border.all(color: AppTheme.cardBorderColor),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: SizedBox(
-                height: 150,
-                width: 150,
+                height: 140,
+                width: 140,
                 child: QrImageView(
                   data: SecurityService.encryptData(product.code),
-                  size: 150,
-                  backgroundColor: Colors.white,
+                  size: 140,
+                  backgroundColor: Colors.transparent,
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Text(
               product.name,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.textPrimary),
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: AppTheme.textPrimary,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
               product.code,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: GoogleFonts.jetBrainsMono(
                 color: AppTheme.textSecondary,
-                fontSize: 12,
-                fontFamily: 'monospace',
+                fontSize: 11,
                 letterSpacing: 0.5,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
@@ -574,8 +856,16 @@ void _showQrDialog(BuildContext context, Product product) {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       side: const BorderSide(color: AppTheme.cardBorderColor),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     ),
-                    child: const Text("Tutup", style: TextStyle(fontWeight: FontWeight.w600)),
+                    child: Text(
+                      "TUTUP",
+                      style: GoogleFonts.jetBrainsMono(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -586,9 +876,17 @@ void _showQrDialog(BuildContext context, Product product) {
                       backgroundColor: AppTheme.primaryDark,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      elevation: 0,
                     ),
-                    icon: const Icon(Icons.print_rounded, size: 16),
-                    label: const Text("Cetak PDF", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                    icon: const Icon(Icons.print_rounded, size: 14),
+                    label: Text(
+                      "CETAK PDF",
+                      style: GoogleFonts.jetBrainsMono(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -643,18 +941,27 @@ class _SearchSheetState extends State<_SearchSheet> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+        border: Border(
+          top: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+          left: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+          right: BorderSide(color: AppTheme.cardBorderColor, width: 1),
+        ),
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 "Cari Data Barang Lama",
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textPrimary),
+                style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.close, size: 18),
@@ -662,25 +969,25 @@ class _SearchSheetState extends State<_SearchSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(10),
+              color: AppTheme.surfaceRecessed,
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: AppTheme.cardBorderColor),
             ),
             child: TextField(
               autofocus: true,
               onChanged: _search,
-              style: const TextStyle(fontSize: 13),
-              decoration: const InputDecoration(
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppTheme.textPrimary),
+              decoration: InputDecoration(
                 hintText: "Ketik nama barang...",
-                hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                prefixIcon: Icon(Icons.search, size: 20, color: AppTheme.textSecondary),
+                hintStyle: GoogleFonts.plusJakartaSans(color: AppTheme.textMuted, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondary),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               ),
             ),
           ),
@@ -690,18 +997,27 @@ class _SearchSheetState extends State<_SearchSheet> {
             child: loading
                 ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
                 : (results.isEmpty
-                    ? const Center(
-                        child: Text("Ketik minimal 2 huruf untuk mencari", style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                    ? Center(
+                        child: Text(
+                          "Ketik minimal 2 huruf untuk mencari",
+                          style: GoogleFonts.plusJakartaSans(color: AppTheme.textMuted, fontSize: 12),
+                        ),
                       )
                     : ListView.separated(
-                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        separatorBuilder: (_, _) => const Divider(height: 1, color: AppTheme.cardBorderColor),
                         itemCount: results.length,
                         itemBuilder: (_, i) {
                           final p = results[i];
                           return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                            title: Text(p.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                            subtitle: Text("Stok: ${p.stock} • Rp ${p.price}", style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            title: Text(
+                              p.name,
+                              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              "STOK: ${p.stock} • Rp ${p.price}",
+                              style: GoogleFonts.jetBrainsMono(fontSize: 11, color: AppTheme.textSecondary),
+                            ),
                             trailing: const Icon(Icons.chevron_right, size: 16, color: AppTheme.textMuted),
                             onTap: () => widget.onSelect(p),
                           );

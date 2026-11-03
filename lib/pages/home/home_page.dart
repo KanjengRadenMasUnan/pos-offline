@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:smartcampus/utils/permission_helper.dart';
-import '../../config/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart' hide Config;
+
 import '../../config/app_config.dart';
+import '../../config/app_theme.dart';
 import '../../controllers/server_status_controller.dart';
+import '../../controllers/tablet_mode_controller.dart';
+import '../../utils/permission_helper.dart';
 import '../product/add_product_page.dart';
 import '../product/product_list_page.dart';
 import '../cashier/cashier_page.dart';
@@ -40,6 +43,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = context.watch<TabletModeController>().isTabletLayout(context);
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       drawer: _buildDrawer(context),
@@ -59,114 +64,11 @@ class _HomePageState extends State<HomePage> {
                 child: _buildHeader(context),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                 sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // HERO: Kasir Terminal
-                      _HeroCashierCard(
-                        onTap: () {
-                          HapticFeedback.mediumImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const CashierPage()),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Section Title
-                      Row(
-                        children: [
-                          Container(
-                            width: 3,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "OPERASIONAL & MANAJEMEN",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textSecondary,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Grid Menu Items (Bento Style)
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        childAspectRatio: 1.15,
-                        children: [
-                          _ModernMenuCard(
-                            title: "Katalog Produk",
-                            subtitle: "Kelola stok & harga",
-                            icon: Icons.inventory_2_outlined,
-                            accentColor: const Color(0xFF0284C7),
-                            page: const ProductListPage(),
-                          ),
-                          _ModernMenuCard(
-                            title: "Tambah Produk",
-                            subtitle: "Input item baru & QR",
-                            icon: Icons.add_box_outlined,
-                            accentColor: const Color(0xFF059669),
-                            page: const AddProductPage(),
-                          ),
-                          _ModernMenuCard(
-                            title: "Riwayat Transaksi",
-                            subtitle: "Arsip nota & struk",
-                            icon: Icons.receipt_long_outlined,
-                            accentColor: const Color(0xFF7C3AED),
-                            page: const HistoryPage(),
-                          ),
-                          _ModernMenuCard(
-                            title: "Label QR Barcode",
-                            subtitle: "Cetak stiker massal",
-                            icon: Icons.qr_code_2_rounded,
-                            accentColor: const Color(0xFFD97706),
-                            page: const BulkPrintPage(),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Full-width Analytics Banner
-                      _AnalyticsBannerCard(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ReportPage()),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 32),
-
-                      // App Version Footer
-                      Center(
-                        child: Text(
-                          "${Config.appName}  •  v${Config.appVersion}",
-                          style: const TextStyle(
-                            color: AppTheme.textMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: isTablet
+                      ? _buildTabletMainContent(context)
+                      : _buildPortraitMainContent(context),
                 ),
               ),
             ],
@@ -176,20 +78,295 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- MODERN HEADER ---
+  // --- PORTRAIT CONTENT ---
+  Widget _buildPortraitMainContent(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // HARDWARE HERO CONSOLE (CARBON MONOLITH)
+        _HeroCashierCard(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CashierPage()),
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+
+        // SECTION HEADER (ARCHITECTURAL LABEL)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 12,
+                  color: AppTheme.primaryColor,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "MODUL OPERASIONAL TOKO",
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textSecondary,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceRecessed,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: AppTheme.cardBorderColor),
+              ),
+              child: Text(
+                "OFFLINE MODE",
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textSecondary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // ASYMMETRIC BENTO GRID (ARCHITECTURAL TILES)
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 1.25,
+          children: const [
+            _TactileMenuCard(
+              title: "Katalog Produk",
+              subtitle: "Kelola stok & harga",
+              codeTag: "SKU-MGR",
+              icon: Icons.inventory_2_outlined,
+              page: ProductListPage(),
+            ),
+            _TactileMenuCard(
+              title: "Tambah Produk",
+              subtitle: "Item baru & barcode",
+              codeTag: "NEW-ITEM",
+              icon: Icons.add_box_outlined,
+              page: AddProductPage(),
+            ),
+            _TactileMenuCard(
+              title: "Riwayat Nota",
+              subtitle: "Arsip struk tersimpan",
+              codeTag: "LOG-TRX",
+              icon: Icons.receipt_long_outlined,
+              page: HistoryPage(),
+            ),
+            _TactileMenuCard(
+              title: "Label Barcode",
+              subtitle: "Cetak stiker massal",
+              codeTag: "LBL-PRT",
+              icon: Icons.qr_code_2_rounded,
+              page: BulkPrintPage(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // FINANCIAL LEDGER BANNER
+        _AnalyticsBannerCard(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ReportPage()),
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+
+        // MINIMAL FOOTER
+        Center(
+          child: Text(
+            "${Config.appName.toUpperCase()}  //  STANDALONE V${Config.appVersion}",
+            style: GoogleFonts.jetBrainsMono(
+              color: AppTheme.textMuted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- TABLET HORIZONTAL CONTENT ---
+  Widget _buildTabletMainContent(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left Column: Hero Console + Analytics Card
+            Expanded(
+              flex: 46,
+              child: Column(
+                children: [
+                  _HeroCashierCard(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CashierPage()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _AnalyticsBannerCard(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ReportPage()),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Right Column: 4 Menu Cards (2x2 grid)
+            Expanded(
+              flex: 54,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(width: 3, height: 12, color: AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                "OPERASIONAL & MANAJEMEN",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.textSecondary,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceRecessed,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.cardBorderColor),
+                        ),
+                        child: Text(
+                          "TABLET ENGINE",
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 1.45,
+                    children: const [
+                      _TactileMenuCard(
+                        title: "Katalog Produk",
+                        subtitle: "Kelola stok & harga",
+                        codeTag: "SKU-MGR",
+                        icon: Icons.inventory_2_outlined,
+                        page: ProductListPage(),
+                      ),
+                      _TactileMenuCard(
+                        title: "Tambah Produk",
+                        subtitle: "Item baru & barcode",
+                        codeTag: "NEW-ITEM",
+                        icon: Icons.add_box_outlined,
+                        page: AddProductPage(),
+                      ),
+                      _TactileMenuCard(
+                        title: "Riwayat Nota",
+                        subtitle: "Arsip struk tersimpan",
+                        codeTag: "LOG-TRX",
+                        icon: Icons.receipt_long_outlined,
+                        page: HistoryPage(),
+                      ),
+                      _TactileMenuCard(
+                        title: "Label Barcode",
+                        subtitle: "Cetak stiker massal",
+                        codeTag: "LBL-PRT",
+                        icon: Icons.qr_code_2_rounded,
+                        page: BulkPrintPage(),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Center(
+          child: Text(
+            "${Config.appName.toUpperCase()}  //  STANDALONE V${Config.appVersion}",
+            style: GoogleFonts.jetBrainsMono(
+              color: AppTheme.textMuted,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- MASTHEAD HEADER ---
   Widget _buildHeader(BuildContext context) {
     final now = DateTime.now();
     String dateStr;
     try {
-      dateStr = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(now);
+      dateStr = DateFormat('EEE, dd MMM yyyy', 'id_ID').format(now).toUpperCase();
     } catch (_) {
       dateStr = "${now.day}/${now.month}/${now.year}";
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.surfaceColor,
         border: Border(
           bottom: BorderSide(color: AppTheme.cardBorderColor, width: 1),
         ),
@@ -198,24 +375,24 @@ class _HomePageState extends State<HomePage> {
         children: [
           Builder(
             builder: (ctx) => InkWell(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               onTap: () => Scaffold.of(ctx).openDrawer(),
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(9),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppTheme.surfaceRecessed,
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.cardBorderColor),
                 ),
                 child: const Icon(
                   Icons.menu_rounded,
-                  color: AppTheme.textPrimary,
-                  size: 20,
+                  color: AppTheme.primaryColor,
+                  size: 18,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,28 +400,27 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       "NANDA CELL",
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppTheme.primaryColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.3,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: AppTheme.surfaceRecessed,
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
-                      child: const Text(
+                      child: Text(
                         "POS OFFLINE",
-                        style: TextStyle(
+                        style: GoogleFonts.jetBrainsMono(
                           fontSize: 9,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           color: AppTheme.textSecondary,
                           letterSpacing: 0.5,
                         ),
@@ -255,70 +431,73 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 2),
                 Text(
                   dateStr,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: AppTheme.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
-          const _ModernServerStatusBadge(),
+          const _TactileStatusBadge(),
         ],
       ),
     );
   }
 
-  // --- MODERN MINIMALIST DRAWER ---
+  // --- ARCHITECTURAL DRAWER ---
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
+      ),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Drawer Header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
               decoration: const BoxDecoration(
-                color: AppTheme.primaryDark,
+                color: AppTheme.primaryColor,
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFF28292E), width: 1),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
-                      ),
+                      color: const Color(0xFF23252B),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF33353E)),
                     ),
                     child: const Icon(
-                      Icons.storefront_rounded,
+                      Icons.storefront_outlined,
                       color: Colors.white,
-                      size: 22,
+                      size: 20,
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    "Nanda Cell",
-                    style: TextStyle(
+                  Text(
+                    "Nanda Cell POS",
+                    style: GoogleFonts.plusJakartaSans(
                       color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
                       letterSpacing: -0.3,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    "POS & Manajemen Toko",
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                    "Sistem Kasir & Inventori Lokal",
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white.withValues(alpha: 0.6),
                       fontSize: 12,
                     ),
                   ),
@@ -327,53 +506,17 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 12),
 
-            // Navigation Items
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Column(
                 children: [
                   _DrawerItem(
-                    icon: Icons.point_of_sale_rounded,
-                    title: "Kasir Transaksi",
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CashierPage()),
-                      );
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.inventory_2_outlined,
-                    title: "Katalog Produk",
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ProductListPage()),
-                      );
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.bar_chart_rounded,
-                    title: "Laporan & Analitik",
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ReportPage()),
-                      );
-                    },
-                  ),
-                  _DrawerItem(
-                    icon: Icons.settings_outlined,
+                    indexCode: "01",
+                    icon: Icons.tune_rounded,
                     title: "Pengaturan Sistem",
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SettingsPage()),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
                     },
                   ),
                 ],
@@ -381,25 +524,30 @@ class _HomePageState extends State<HomePage> {
             ),
 
             const Spacer(),
-            const Divider(),
-
-            // Footer
+            const Divider(color: AppTheme.cardBorderColor, height: 1),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.verified_outlined,
-                    size: 16,
-                    color: AppTheme.textMuted,
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.successColor,
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    "Versi ${Config.appVersion} • Standalone",
-                    style: const TextStyle(
-                      color: AppTheme.textMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      "Versi ${Config.appVersion} // Standalone DB",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: AppTheme.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -412,99 +560,121 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// --- HERO CASHIER CARD ---
+// --- HERO HARDWARE CONSOLE CARD ---
 class _HeroCashierCard extends StatelessWidget {
   final VoidCallback onTap;
   const _HeroCashierCard({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.primaryDark,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 0,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF28292E), width: 1),
+      ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        splashColor: Colors.white.withValues(alpha: 0.08),
-        highlightColor: Colors.white.withValues(alpha: 0.04),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.point_of_sale_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          splashColor: Colors.white.withValues(alpha: 0.05),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Text(
-                          "KASIR PENJUALAN",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF23252B),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFF33353E)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.successColor,
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.successColor.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            "SIAP",
-                            style: TextStyle(
-                              color: Color(0xFF34D399),
+                          const SizedBox(width: 6),
+                          Text(
+                            "REG-01 // READY",
+                            style: GoogleFonts.jetBrainsMono(
+                              color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "TERMINAL KASIR",
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Proses transaksi barcode, hitung kembalian & cetak nota fisik 58mm",
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  height: 42,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.point_of_sale_rounded, color: AppTheme.primaryColor, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          "BUKA TERMINAL KASIR  →",
+                          style: GoogleFonts.jetBrainsMono(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12.5,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Mulai transaksi, scan barcode & cetak struk",
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -512,162 +682,74 @@ class _HeroCashierCard extends StatelessWidget {
   }
 }
 
-// --- MODERN MENU CARD (BENTO GRID) ---
-class _ModernMenuCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color accentColor;
-  final Widget page;
-
-  const _ModernMenuCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.accentColor,
-    required this.page,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          HapticFeedback.lightImpact();
-          Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-        },
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.cardBorderColor, width: 1),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Icon(icon, size: 20, color: accentColor),
-                  ),
-                  const Icon(
-                    Icons.arrow_outward_rounded,
-                    size: 16,
-                    color: AppTheme.textMuted,
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// --- FULL WIDTH ANALYTICS BANNER ---
+// --- FINANCIAL LEDGER BANNER ---
 class _AnalyticsBannerCard extends StatelessWidget {
   final VoidCallback onTap;
   const _AnalyticsBannerCard({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.cardBorderColor, width: 1),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.cardBorderColor, width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceRecessed,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.cardBorderColor),
+                  ),
+                  child: const Icon(
+                    Icons.query_stats_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.analytics_outlined,
-                  color: AppTheme.primaryColor,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Laporan & Analisis Penjualan",
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Laporan & Analisis Penjualan",
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      "Lihat grafik tren, insight algoritma & ekspor PDF/Excel/PPT",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w400,
+                      const SizedBox(height: 2),
+                      Text(
+                        "Rekap omset, tren diagram garis & ekspor PDF/Excel",
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 14,
-                color: AppTheme.textMuted,
-              ),
-            ],
+                const Icon(
+                  Icons.arrow_outward_rounded,
+                  size: 18,
+                  color: AppTheme.textMuted,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -675,41 +757,171 @@ class _AnalyticsBannerCard extends StatelessWidget {
   }
 }
 
-// --- SERVER STATUS BADGE ---
-class _ModernServerStatusBadge extends StatelessWidget {
-  const _ModernServerStatusBadge();
+// --- TACTILE MENU CARD (ARCHITECTURAL 8PX) ---
+class _TactileMenuCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String codeTag;
+  final IconData icon;
+  final Widget page;
+
+  const _TactileMenuCard({
+    required this.title,
+    required this.subtitle,
+    required this.codeTag,
+    required this.icon,
+    required this.page,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Selector<ServerStatusController, ServerStatus>(
-      selector: (_, ctrl) => ctrl.status,
-      builder: (_, status, _) {
-        final (label, color, dotColor) = switch (status) {
-          ServerStatus.online => (
-            "Online",
-            const Color(0xFFF0FDF4),
-            const Color(0xFF16A34A),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cardBorderColor, width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceRecessed,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.cardBorderColor),
+                      ),
+                      child: Icon(icon, color: AppTheme.primaryColor, size: 17),
+                    ),
+                    Text(
+                      codeTag,
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10.5,
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          ServerStatus.checking => (
-            "Cek...",
-            const Color(0xFFFEF3C7),
-            const Color(0xFFD97706),
-          ),
-          ServerStatus.sleeping => (
-            "Offline",
-            const Color(0xFFF1F5F9),
-            const Color(0xFF64748B),
-          ),
-        };
+        ),
+      ),
+    );
+  }
+}
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+// --- DRAWER ITEM ---
+class _DrawerItem extends StatelessWidget {
+  final String indexCode;
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  const _DrawerItem({
+    required this.indexCode,
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        leading: Container(
+          width: 28,
+          height: 28,
           decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(20),
+            color: AppTheme.surfaceRecessed,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, color: AppTheme.primaryColor, size: 16),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        trailing: Text(
+          indexCode,
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textMuted,
+          ),
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+// --- TACTILE STATUS BADGE ---
+class _TactileStatusBadge extends StatelessWidget {
+  const _TactileStatusBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ServerStatusController>(
+      builder: (_, controller, _) {
+        final isOnline = controller.isOnline;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isOnline ? const Color(0xFFF0FDF4) : AppTheme.surfaceRecessed,
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: dotColor.withValues(alpha: 0.25),
-              width: 1,
+              color: isOnline ? const Color(0xFFBBF7D0) : AppTheme.cardBorderColor,
             ),
           ),
           child: Row(
@@ -719,66 +931,24 @@ class _ModernServerStatusBadge extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color: dotColor,
                   shape: BoxShape.circle,
+                  color: isOnline ? AppTheme.successColor : AppTheme.textMuted,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
-                label,
-                style: TextStyle(
-                  color: dotColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
+                isOnline ? "SYNC ON" : "LOCAL",
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  color: isOnline ? AppTheme.successColor : AppTheme.textSecondary,
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-// --- DRAWER ITEM ---
-class _DrawerItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  const _DrawerItem({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        onTap: onTap,
-        dense: true,
-        leading: Icon(icon, color: AppTheme.textSecondary, size: 20),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          size: 18,
-          color: AppTheme.textMuted,
-        ),
-      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'config/app_theme.dart';
 import 'controllers/cashier_controller.dart';
 import 'controllers/server_status_controller.dart';
+import 'controllers/tablet_mode_controller.dart';
 import 'pages/home/home_page.dart';
 import 'providers/cart_provider.dart';
 import 'services/api_service.dart';
@@ -41,6 +42,9 @@ class MyApp extends StatelessWidget {
 
   List<ChangeNotifierProvider> _buildProviders() {
     return [
+      ChangeNotifierProvider<TabletModeController>(
+        create: (_) => TabletModeController()..init(),
+      ),
       ChangeNotifierProvider<CartProvider>(create: (_) => CartProvider()),
       ChangeNotifierProvider<ServerStatusController>(
         create: (_) => ServerStatusController(),
